@@ -1,0 +1,57 @@
+{
+  "dataset": "synthetic-resume-extraction-v1",
+  "syntheticOnly": true,
+  "description": "Fictional resume text paired with expected extraction fields. All names are illustrative, email addresses use the reserved .invalid domain, and phone numbers use reserved 555-01xx examples.",
+  "labelDefinitions": {
+    "skills": "Explicitly named skills supported by the resume text; not a proficiency assessment.",
+    "emailAddresses": "Email strings visibly present in the resume text.",
+    "phoneNumbers": "Phone strings visibly present in the resume text.",
+    "sectionHeadingsPresent": "Canonical section labels corresponding to visibly present headings.",
+    "textCharacters": "JavaScript string length of the provided text, including whitespace and line breaks.",
+    "confidence": "Heuristic labels, not calibrated probabilities. Contact confidence reflects regex matches; skills confidence is model-derived and should be reviewed."
+  },
+  "records": [
+    {
+      "id": "synthetic-001",
+      "split": "train",
+      "sourceFormat": "synthetic_text",
+      "text": "Jordan Sample\nEmail: jordan.sample@example.invalid\nPhone: +1 (202) 555-0142\n\nSkills\nPython, SQL, React, TypeScript\n\nProjects\nBuilt a data dashboard using Python and SQL.\n\nEducation\nB.S. Computer Science, Example University",
+      "extraction": {
+        "skills": ["python", "react", "sql", "typescript"],
+        "emailAddresses": ["jordan.sample@example.invalid"],
+        "phoneNumbers": ["+1 (202) 555-0142"],
+        "sectionHeadingsPresent": ["skills", "projects", "education"],
+        "textCharacters": 222,
+        "confidence": {"skills": "high", "contactDetails": "high"}
+      }
+    },
+    {
+      "id": "synthetic-002",
+      "split": "train",
+      "sourceFormat": "synthetic_text",
+      "text": "Taylor Example\nEmail: taylor.example@example.invalid\n\nProfessional Experience\nDeveloped a web interface with React and TypeScript.\n\nTechnical Skills\nReact, TypeScript, Docker\n\nCertifications\nAWS Certified Cloud Practitioner",
+      "extraction": {
+        "skills": ["docker", "react", "typescript"],
+        "emailAddresses": ["taylor.example@example.invalid"],
+        "phoneNumbers": [],
+        "sectionHeadingsPresent": ["experience", "skills", "certifications"],
+        "textCharacters": 223,
+        "confidence": {"skills": "high", "contactDetails": "medium"}
+      }
+    },
+    {
+      "id": "synthetic-003",
+      "split": "train",
+      "sourceFormat": "synthetic_text",
+      "text": "Morgan Demo\n\nAcademic Background\nB.S. Information Systems\n\nSelected Projects\nCreated a Linux utility in Rust.\n\nTechnical Expertise\nRust, Linux, Docker",
+      "extraction": {
+        "skills": ["docker", "linux", "rust"],
+        "emailAddresses": [],
+        "phoneNumbers": [],
+        "sectionHeadingsPresent": ["education", "projects", "skills"],
+        "textCharacters": 150,
+        "confidence": {"skills": "high", "contactDetails": "low"}
+      }
+    }
+  ]
+}
