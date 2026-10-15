@@ -213,6 +213,20 @@
 .profile-form .full-field { grid-column: 1 / -1; }
 .profile-form-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; }
 .profile-form-actions .button { min-height: 38px; }
+.resume-upload { display: flex; align-items: flex-end; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.resume-upload .form-field { flex: 1; min-width: 0; }
+.resume-upload .form-field input { min-height: 40px; padding: 6px 9px; font-size: 11px; }
+.resume-upload .button { flex: 0 0 auto; min-height: 40px; white-space: nowrap; }
+.resume-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.resume-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 13px 15px; border: 1px solid var(--border); border-radius: 11px; background: #fff; }
+.resume-file-icon { display: grid; flex: 0 0 auto; place-items: center; width: 36px; height: 36px; border-radius: 9px; color: #467b5b; background: #edf7ef; }
+.resume-file-details { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.resume-file-details strong { overflow: hidden; color: #334c40; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.resume-file-details > span { color: #819087; font-size: 9px; }
+.resume-action { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 32px; padding: 0 9px; border: 1px solid #e1e9e3; border-radius: 7px; color: #467b5b; background: #fff; font-size: 10px; font-weight: 600; }
+.resume-action:hover { background: #f3f8f4; }
+.resume-action:disabled { cursor: wait; opacity: .6; }
+.resume-delete { color: #8a4a4a; }
 .profile-success { color: #36734f; font-size: 11px; }
 @media (max-width: 850px) {
   .landing-page { width: min(100% - 40px, 650px); }
@@ -279,6 +293,10 @@
   .dashboard-footer { align-items: flex-start; flex-direction: column; }
   .profile-form { grid-template-columns: 1fr; padding: 13px; }
   .profile-form .full-field, .profile-form-actions { grid-column: auto; }
+  .resume-upload { align-items: stretch; flex-direction: column; padding: 13px; }
+  .resume-row { flex-wrap: wrap; gap: 9px; padding: 11px; }
+  .resume-file-details { flex-basis: calc(100% - 50px); }
+  .resume-action { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

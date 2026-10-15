@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { Activity, ArrowRight, Bell, BriefcaseBusiness, Building2, Check, ChevronRight, CircleHelp, Compass, FileCheck2, GraduationCap, LayoutDashboard, LoaderCircle, LogOut, MapPin, Plus, ShieldCheck, Sparkles, UserRound, Users, WandSparkles } from 'lucide-react'
+import { Activity, ArrowRight, Bell, BriefcaseBusiness, Building2, Check, ChevronRight, CircleHelp, Compass, Download, FileCheck2, FileText, GraduationCap, LayoutDashboard, LoaderCircle, LogOut, MapPin, Plus, ShieldCheck, Sparkles, Trash2, Upload, UserRound, Users, WandSparkles } from 'lucide-react'
 import { signOut } from '@/lib/auth-client'
 import { checkEligibility, displayRole, explainSkillFit, initials } from '@/lib/portal/logic'
 
@@ -24,13 +24,17 @@ type Profile = { role: string; headline: string | null; institution: string | nu
 type Application = { id: string; status: string; createdAt: string; internshipId: string; title: string; companyName: string }
 type RecruiterListing = { id: string; title: string; companyName: string; status: string; deadline: string | null }
 type ModelRow = { id: string; modelName: string; task: string; version: string; trainingStatus: string; approvalStatus: string; deploymentStatus: string; evaluationMetrics: Record<string, unknown> }
+type Resume = { id: string; originalName: string; byteSize: number; createdAt: string }
 type NavItem = { id: string; label: string; icon: typeof LayoutDashboard }
 
-export function PortalDashboard({ user, profile: initialProfile, listings, applications, recruiterListings, modelRows }: {
-  user: { id: string; name: string; email: string }; profile: Profile; listings: Listing[]; applications: Application[]; recruiterListings: RecruiterListing[]; modelRows: ModelRow[]
+export function PortalDashboard({ user, profile: initialProfile, listings, applications, recruiterListings, modelRows, resumes: initialResumes }: {
+  user: { id: string; name: string; email: string }; profile: Profile; listings: Listing[]; applications: Application[]; recruiterListings: RecruiterListing[]; modelRows: ModelRow[]; resumes: Resume[]
 }) {
   const router = useRouter()
   const [profile, setProfile] = useState(initialProfile)
+  const [resumes, setResumes] = useState(initialResumes)
+  const [uploadingResume, setUploadingResume] = useState(false)
+  const [deletingResumeId, setDeletingResumeId] = useState('')
   const [active, setActive] = useState('overview')
   const [appliedIds, setAppliedIds] = useState(() => new Set(applications.map((application) => application.internshipId)))
   const [pendingId, setPendingId] = useState('')
@@ -112,6 +116,54 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
     }
   }
 
+  async function uploadResume(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    const file = new FormData(form).get('file')
+    if (!(file instanceof File) || file.size === 0) {
+      setNotice('Choose a PDF resume to upload.')
+      return
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setNotice('Resume must be 4 MB or smaller.')
+      return
+    }
+    setUploadingResume(true)
+    setNotice('')
+    try {
+      const data = new FormData()
+      data.append('file', file)
+      const response = await fetch('/api/resumes', { method: 'POST', body: data })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Unable to upload this resume.')
+      setResumes((previous) => [result.resume as Resume, ...previous].slice(0, 10))
+      form.reset()
+      setNotice('Your resume has been uploaded securely.')
+      router.refresh()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Unable to upload this resume.')
+    } finally {
+      setUploadingResume(false)
+    }
+  }
+
+  async function deleteResume(id: string) {
+    setDeletingResumeId(id)
+    setNotice('')
+    try {
+      const response = await fetch('/api/resumes', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Unable to delete this resume.')
+      setResumes((previous) => previous.filter((resume) => resume.id !== id))
+      setNotice('Your resume has been deleted.')
+      router.refresh()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Unable to delete this resume.')
+    } finally {
+      setDeletingResumeId('')
+    }
+  }
+
   async function createListing(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = event.currentTarget
@@ -153,7 +205,7 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
         <div className="dashboard-content">
           <div className="dashboard-welcome"><div><div className="eyebrow"><span className="eyebrow-dot" /> YOUR {roleLabel.toUpperCase()} WORKSPACE</div><h1>{active === 'overview' ? `Good to see you, ${user.name.split(' ')[0]}.` : navItems.find((item) => item.id === active)?.label}</h1><p>{active === 'overview' ? role === 'student' ? 'Your next opportunity starts with a clear view of what fits.' : `Your ${roleLabel.toLowerCase()} tools and authorized records, all in one place.` : 'Explore the information and tools available to your account.'}</p></div>{role === 'student' && <div className="profile-row"><span>PROFILE DETAILS</span><span><i style={{ width: `${profileCompleteness(profile)}%` }} /></span><strong>{profileCompleteness(profile)}%</strong></div>}</div>
           {notice && <div className={notice.includes('unable') || notice.includes('Unable') ? 'form-error' : 'profile-success'} role="status">{notice}</div>}
-          {role === 'student' && <StudentContent active={active} profile={profile} listings={filteredListings} applications={applications} appliedIds={appliedIds} pendingId={pendingId} onApply={apply} search={search} onSearch={setSearch} onSaveProfile={saveProfile} saving={saving} />}
+          {role === 'student' && <StudentContent active={active} profile={profile} listings={filteredListings} applications={applications} appliedIds={appliedIds} pendingId={pendingId} onApply={apply} search={search} onSearch={setSearch} onSaveProfile={saveProfile} saving={saving} resumes={resumes} onUploadResume={uploadResume} onDeleteResume={deleteResume} uploadingResume={uploadingResume} deletingResumeId={deletingResumeId} />}
           {role === 'company_recruiter' && <RecruiterContent active={active} listings={recruiterListings} onCreate={createListing} saving={saving} />}
           {role === 'faculty' && <FacultyContent active={active} />}
           {role === 'placement_officer' && <PlacementContent active={active} />}
@@ -170,8 +222,12 @@ function profileCompleteness(profile: Profile) {
   return Math.round((checks.filter(Boolean).length / checks.length) * 100)
 }
 
-function StudentContent({ active, profile, listings, applications, appliedIds, pendingId, onApply, search, onSearch, onSaveProfile, saving }: {
-  active: string; profile: Profile; listings: Listing[]; applications: Application[]; appliedIds: Set<string>; pendingId: string; onApply: (id: string) => void; search: string; onSearch: (value: string) => void; onSaveProfile: (event: FormEvent<HTMLFormElement>) => void; saving: boolean
+function formatFileSize(bytes: number) {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function StudentContent({ active, profile, listings, applications, appliedIds, pendingId, onApply, search, onSearch, onSaveProfile, saving, resumes, onUploadResume, onDeleteResume, uploadingResume, deletingResumeId }: {
+  active: string; profile: Profile; listings: Listing[]; applications: Application[]; appliedIds: Set<string>; pendingId: string; onApply: (id: string) => void; search: string; onSearch: (value: string) => void; onSaveProfile: (event: FormEvent<HTMLFormElement>) => void; saving: boolean; resumes: Resume[]; onUploadResume: (event: FormEvent<HTMLFormElement>) => void; onDeleteResume: (id: string) => void; uploadingResume: boolean; deletingResumeId: string
 }) {
   if (active === 'profile') return <section className="dashboard-section"><div className="section-heading"><div><h2>Your profile</h2><p>Add accurate details to make eligibility checks more useful.</p></div></div><form className="profile-form" onSubmit={onSaveProfile}>
     <label className="form-field"><span>Headline</span><input name="headline" defaultValue={profile.headline ?? ''} maxLength={160} placeholder="e.g. Computer science student" /></label>
@@ -182,7 +238,7 @@ function StudentContent({ active, profile, listings, applications, appliedIds, p
     <label className="form-field"><span>Skills, comma separated</span><input name="skills" defaultValue={profile.skills.join(', ')} maxLength={1200} placeholder="Python, SQL, Figma" /></label>
     <label className="form-field full-field"><span>Career interests, comma separated</span><input name="interests" defaultValue={profile.interests.join(', ')} maxLength={800} placeholder="Product design, data analytics" /></label>
     <div className="profile-form-actions"><button className="button button-dark" disabled={saving} type="submit">{saving ? 'Saving…' : 'Save profile'}</button>{saving && <LoaderCircle className="spin" size={16} />}</div>
-  </form><div className="dashboard-section"><div className="section-heading"><div><h2>Resume documents</h2><p>Private resume storage is not connected yet. Your files won&apos;t be stored in a public folder.</p></div></div><div className="empty-state"><strong>Resume uploads will appear here</strong><p>Profile details work now; secure file upload needs the private storage connector.</p></div></div></section>
+  </form><section className="dashboard-section"><div className="section-heading"><div><h2>Resume documents</h2><p>Private PDFs are visible only to your account. Maximum file size: 4 MB.</p></div><span className="role-chip">{resumes.length} SAVED</span></div><form className="resume-upload" onSubmit={onUploadResume}><label className="form-field"><span>Choose a PDF resume</span><input name="file" type="file" accept="application/pdf,.pdf" required /></label><button className="button button-dark" type="submit" disabled={uploadingResume}>{uploadingResume ? <><LoaderCircle className="spin" size={15} /> Uploading…</> : <><Upload size={15} /> Upload resume</>}</button></form>{resumes.length ? <ul className="resume-list">{resumes.map((resume) => <li className="resume-row" key={resume.id}><span className="resume-file-icon"><FileText size={17} /></span><div className="resume-file-details"><strong>{resume.originalName}</strong><span>{formatFileSize(resume.byteSize)} · Uploaded <time dateTime={resume.createdAt}>{new Date(resume.createdAt).toLocaleDateString()}</time></span></div><a className="resume-action" href={`/api/resumes/${encodeURIComponent(resume.id)}`} aria-label={`Download ${resume.originalName}`}><Download size={15} /><span>Download</span></a><button className="resume-action resume-delete" type="button" disabled={deletingResumeId === resume.id} aria-label={`Delete ${resume.originalName}`} onClick={() => { if (window.confirm(`Delete ${resume.originalName}?`)) onDeleteResume(resume.id) }}>{deletingResumeId === resume.id ? <LoaderCircle className="spin" size={15} /> : <Trash2 size={15} />}<span>Delete</span></button></li>)}</ul> : <div className="empty-state"><strong>No resumes uploaded</strong><p>Upload a PDF to keep a private copy in your workspace.</p></div>}</section></section>
 
   if (active === 'applications') return <section className="dashboard-section"><div className="section-heading"><div><h2>Application history</h2><p>Only applications created by your account are shown here.</p></div><span className="role-chip">{applications.length} TOTAL</span></div>{applications.length ? <div className="application-list">{applications.map((application) => <div key={application.id} className="application-row"><div><strong>{application.title}</strong><p>{application.companyName} · Submitted {new Date(application.createdAt).toLocaleDateString()}</p></div><span className="status-pill">{application.status.replaceAll('_', ' ')}</span></div>)}</div> : <div className="empty-state"><strong>No applications yet</strong><p>When you apply to an opportunity, its current stage will show up here.</p></div>}</section>
 

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { del, put } from '@vercel/blob'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
@@ -8,6 +8,11 @@ import { db } from '@/lib/db'
 import { auditLogs, portalProfiles, resumeMetadata } from '@/lib/db/schema'
 
 export const runtime = 'nodejs'
+
+function isSameOrigin(request: Request) {
+  const origin = request.headers.get('origin')
+  return !origin || new URL(origin).origin === new URL(request.url).origin
+}
 
 const MAX_RESUME_BYTES = 4 * 1024 * 1024
 const PDF_SIGNATURE = '%PDF-'
@@ -28,6 +33,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) return NextResponse.json({ error: 'Cross-origin upload requests are not allowed.' }, { status: 403 })
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: 'Sign in to upload a resume.' }, { status: 401 })
 
@@ -103,6 +109,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!isSameOrigin(request)) return NextResponse.json({ error: 'Cross-origin delete requests are not allowed.' }, { status: 403 })
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: 'Sign in to delete a resume.' }, { status: 401 })
 
@@ -121,8 +128,8 @@ export async function DELETE(request: Request) {
 
   const [resume] = await db.select({ id: resumeMetadata.id, storageKey: resumeMetadata.storageKey })
     .from(resumeMetadata)
-    .where(eq(resumeMetadata.userId, session.user.id))
-    .then((rows) => rows.filter((row) => row.id === body.id).slice(0, 1))
+    .where(and(eq(resumeMetadata.id, body.id), eq(resumeMetadata.userId, session.user.id)))
+    .limit(1)
   if (!resume) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
 
   try {

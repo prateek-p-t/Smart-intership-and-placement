@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { PortalDashboard } from '@/components/portal-dashboard'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { applications, internships, mlModelRegistry, portalProfiles } from '@/lib/db/schema'
+import { applications, internships, mlModelRegistry, portalProfiles, resumeMetadata } from '@/lib/db/schema'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +18,7 @@ export default async function DashboardPage() {
   const [profile] = await db.select().from(portalProfiles).where(eq(portalProfiles.userId, session.user.id)).limit(1)
   if (!profile) throw new Error('Unable to load your workspace.')
 
-  const [listings, userApplications, recruiterListings, modelRows] = await Promise.all([
+  const [listings, userApplications, recruiterListings, modelRows, resumes] = await Promise.all([
     profile.role === 'student'
       ? db.select().from(internships).where(eq(internships.status, 'published')).orderBy(desc(internships.createdAt)).limit(30)
       : Promise.resolve([]),
@@ -35,6 +35,9 @@ export default async function DashboardPage() {
     profile.role === 'administrator'
       ? db.select().from(mlModelRegistry).orderBy(mlModelRegistry.task).limit(30)
       : Promise.resolve([]),
+    profile.role === 'student'
+      ? db.select({ id: resumeMetadata.id, originalName: resumeMetadata.originalName, byteSize: resumeMetadata.byteSize, createdAt: resumeMetadata.createdAt }).from(resumeMetadata).where(eq(resumeMetadata.userId, session.user.id)).orderBy(desc(resumeMetadata.createdAt)).limit(10)
+      : Promise.resolve([]),
   ])
 
   return <PortalDashboard
@@ -43,6 +46,7 @@ export default async function DashboardPage() {
     listings={listings.map((listing) => ({ ...listing, deadline: listing.deadline ? String(listing.deadline) : null, createdAt: listing.createdAt.toISOString(), updatedAt: listing.updatedAt.toISOString() }))}
     applications={userApplications.map(({ application, listing }) => ({ id: application.id, status: application.status, createdAt: application.createdAt.toISOString(), internshipId: listing.id, title: listing.title, companyName: listing.companyName }))}
     recruiterListings={recruiterListings.map((listing) => ({ id: listing.id, title: listing.title, companyName: listing.companyName, status: listing.status, deadline: listing.deadline ? String(listing.deadline) : null }))}
-    modelRows={modelRows.map((model) => ({ id: model.id, modelName: model.modelName, task: model.task, version: model.version, trainingStatus: model.trainingStatus, approvalStatus: model.approvalStatus, deploymentStatus: model.deploymentStatus, evaluationMetrics: model.evaluationMetrics }))}
+    modelRows={modelRows.map((model) => ({ id: model.id, modelName: model.modelName, task: model.task, version: model.version, trainingStatus: model.trainingStatus, approvalStatus: model.approvalStatus, deploymentStatus: model.deploymentStatus, evaluationMetrics: model.evaluationMetrics && typeof model.evaluationMetrics === 'object' && !Array.isArray(model.evaluationMetrics) ? model.evaluationMetrics as Record<string, unknown> : {} }))}
+    resumes={resumes.map((resume) => ({ ...resume, createdAt: resume.createdAt.toISOString() }))}
   />
 }

@@ -30,7 +30,7 @@ export async function PATCH(request: Request) {
   const parsed = profileSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Check your profile details and try again.' }, { status: 400 })
   const data = parsed.data
-  const values = { ...data, updatedAt: new Date() }
+  const values = { ...data, cgpa: data.cgpa == null ? data.cgpa : String(data.cgpa), updatedAt: new Date() }
   const [updated] = await db.update(portalProfiles).set(values).where(eqProfileUser(session.user.id)).returning({
     role: portalProfiles.role, headline: portalProfiles.headline, institution: portalProfiles.institution, graduationYear: portalProfiles.graduationYear, branch: portalProfiles.branch, cgpa: portalProfiles.cgpa, skills: portalProfiles.skills, interests: portalProfiles.interests,
   })
