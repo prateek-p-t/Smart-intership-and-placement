@@ -126,3 +126,54 @@ def test_oversized_payload_rejected() -> None:
     assert response.status_code == 413
 
 
+def test_resume_file_endpoint_parses_bounded_multipart_upload(monkeypatch) -> None:
+    import base64
+
+    os.environ["ML_SERVICE_TOKEN"] = TOKEN
+    document = b"%PDF-1.4 test resume"
+
+    def fake_parse_resume(payload):
+        assert payload["mediaType"] == "application/pdf"
+        assert base64.b64decode(payload["documentBase64"]) == document
+        return {"task": "resume_parsing", "available": True, "lifecycle": "rules_based", "modelTrained": False}
+
+    monkeypatch.setattr("app.main.parse_resume", fake_parse_resume)
+    response = client.post(
+        "/v1/resume/parse-file",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        files={"file": ("resume.pdf", document, "application/pdf")},
+    )
+    assert response.status_code == 200
+    assert response.json()["task"] == "resume_parsing"
+
+
+def test_resume_file_endpoint_rejects_unsupported_file_type() -> None:
+    os.environ["ML_SERVICE_TOKEN"] = TOKEN
+    response = client.post(
+        "/v1/resume/parse-file",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        files={"file": ("resume.txt", b"plain text", "text/plain")},
+    )
+    assert response.status_code == 415
+
+
+def test_resume_file_endpoint_rejects_invalid_pdf_content() -> None:
+    os.environ["ML_SERVICE_TOKEN"] = TOKEN
+    response = client.post(
+        "/v1/resume/parse-file",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        files={"file": ("resume.pdf", b"not a pdf", "application/pdf")},
+    )
+    assert response.status_code == 422
+
+
+def test_resume_file_endpoint_rejects_files_over_four_megabytes() -> None:
+    os.environ["ML_SERVICE_TOKEN"] = TOKEN
+    response = client.post(
+        "/v1/resume/parse-file",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        files={"file": ("resume.pdf", b"%PDF-" + b"x" * (4 * 1024 * 1024), "application/pdf")},
+    )
+    assert response.status_code == 413
+
+

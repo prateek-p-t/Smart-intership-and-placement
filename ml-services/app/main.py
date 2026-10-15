@@ -5,7 +5,7 @@ import json
 import os
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
 
@@ -13,6 +13,8 @@ from app.models.placement_models import TASK_HANDLERS, task_capabilities
 from app.models.resume_parser.service import parse_resume
 
 MAX_PAYLOAD_BYTES = 64 * 1024
+MAX_RESUME_BYTES = 4 * 1024 * 1024
+MAX_RESUME_BODY_BYTES = MAX_RESUME_BYTES + 64 * 1024
 
 app = FastAPI(
     title="Smart Internship and Placement ML Services",
@@ -55,11 +57,12 @@ class RequestSizeLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        max_body_size = MAX_RESUME_BODY_BYTES if scope.get("path") == "/v1/resume/parse-file" else self.max_body_size
         headers = dict(scope.get("headers", []))
         raw_length = headers.get(b"content-length")
         if raw_length:
             try:
-                if int(raw_length) > self.max_body_size:
+                if int(raw_length) > max_body_size:
                     await self._reject(send, 413, "Request payload is too large")
                     return
             except ValueError:
@@ -73,7 +76,7 @@ class RequestSizeLimitMiddleware:
             message = await receive()
             if message["type"] == "http.request":
                 body_size += len(message.get("body", b""))
-                if body_size > self.max_body_size:
+                if body_size > max_body_size:
                     raise RequestBodyTooLarge
             return message
 
@@ -127,6 +130,29 @@ def models():
 @app.post("/v1/resume/parse", dependencies=[Depends(require_service_token)])
 def parse_resume_endpoint(request: InferenceRequest):
     return _run_task("resume_parsing", request.payload)
+
+
+@app.post("/v1/resume/parse-file", dependencies=[Depends(require_service_token)])
+async def parse_resume_file_endpoint(file: UploadFile = File(...)):
+    if file.content_type != "application/pdf" or not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=415, detail="Only PDF resumes are supported")
+
+    try:
+        contents = await file.read(MAX_RESUME_BYTES + 1)
+    finally:
+        await file.close()
+
+    if len(contents) > MAX_RESUME_BYTES:
+        raise HTTPException(status_code=413, detail="Resume must be 4 MB or smaller")
+
+    import base64
+
+    try:
+        return parse_resume({"documentBase64": base64.b64encode(contents).decode("ascii"), "mediaType": "application/pdf"})
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=422, detail="The PDF could not be read. Try another file.") from error
 
 
 @app.post("/v1/recommendations", dependencies=[Depends(require_service_token)])
