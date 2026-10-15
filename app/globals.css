@@ -179,6 +179,35 @@
 .summary-card strong { display: block; margin-top: 4px; color: #203c4b; font-size: 22px; font-weight: 600; letter-spacing: -0.75px; }
 .summary-card small { color: #8a9890; font-size: 9px; }
 .dashboard-section { margin-top: 25px; }
+.student-quick-links { display: flex; flex-wrap: wrap; gap: 9px; margin: -12px 0 23px; }
+.student-quick-links button { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; color: #3f6e50; background: #fff; font-size: 11px; font-weight: 600; }
+.student-quick-links button:hover { border-color: #bfd6c8; background: #f7faf8; }
+.career-tools-intro { margin: 2px 0 18px; }
+.career-tools-intro h2 { margin: 8px 0 5px; color: #19384b; font-size: 23px; letter-spacing: -.6px; }
+.career-tools-intro p { max-width: 680px; margin: 0; color: #718078; font-size: 12px; line-height: 1.6; }
+.career-tools-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 14px; }
+.career-tool-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 13px; background: #fff; }
+.career-tool-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #47815f; }
+.career-tool-heading h3 { margin: 4px 0 0; color: #243e4b; font-size: 15px; letter-spacing: -.25px; }
+.tool-kicker { color: #6e8c78; font-size: 9px; font-weight: 700; letter-spacing: .8px; }
+.career-tool-card .form-field { font-size: 11px; }
+.career-tool-card select, .practice-prompt textarea { width: 100%; min-height: 39px; padding: 8px 10px; border: 1px solid #dce6e0; border-radius: 8px; color: #294239; background: #fff; font: inherit; font-size: 11px; }
+.manual-role-fields { display: flex; flex-direction: column; gap: 12px; }
+.tool-skill-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tool-skill-lists > div { min-width: 0; }
+.tool-skill-lists strong { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #40584b; font-size: 10px; }
+.tool-skill-lists strong span { display: grid; place-items: center; min-width: 21px; height: 21px; border-radius: 50%; color: #3f6e50; background: #edf7ef; }
+.tool-skill-lists .skill-list { margin: 8px 0 0; }
+.tool-skill-lists p, .practice-role { margin: 7px 0 0; color: #77867d; font-size: 10px; line-height: 1.5; }
+.skill-chip-missing { color: #765934; background: #fbf6ec; border-color: #eee3ce; }
+.tool-disclaimer { margin: 0; color: #7a8980; font-size: 10px; line-height: 1.55; }
+.practice-role { margin: -4px 0 0; }
+.practice-role strong { color: #40584b; }
+.practice-prompt-list { display: flex; flex-direction: column; gap: 12px; }
+.practice-prompt { display: flex; flex-direction: column; gap: 7px; color: #53665b; font-size: 11px; line-height: 1.5; }
+.practice-prompt strong { color: #3f6e50; }
+.practice-prompt textarea { min-height: 76px; resize: vertical; font-weight: 400; line-height: 1.5; }
+.practice-prompt textarea::placeholder { color: #9ba79f; }
 .section-heading { justify-content: space-between; gap: 16px; margin-bottom: 13px; }
 .section-heading h2 { margin: 0; color: #243e4b; font-size: 16px; letter-spacing: -0.35px; }
 .section-heading p { margin: 4px 0 0; color: #7b8981; font-size: 10px; }
@@ -306,6 +335,9 @@
   .dashboard-welcome { align-items: flex-start; flex-direction: column; gap: 12px; margin-bottom: 18px; }
   .dashboard-welcome h1 { font-size: 23px; }
   .dashboard-summary { gap: 7px; }
+  .career-tools-grid, .tool-skill-lists { grid-template-columns: 1fr; }
+  .career-tool-card { padding: 14px; }
+  .student-quick-links button { flex: 1 1 auto; justify-content: center; }
   .summary-card { padding: 11px 9px; }
   .summary-card span { font-size: 8px; }
   .summary-card strong { font-size: 18px; }
