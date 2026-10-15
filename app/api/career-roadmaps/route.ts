@@ -189,7 +189,19 @@ export async function POST(request: Request) {
         : 'No PDF was selected; the match uses skills from your profile.',
     }, { status: 201, headers: { 'Cache-Control': 'private, no-store' } })
   } catch (error) {
-    console.error('Career roadmap generation failed.', error)
+    const gatewayError = error as Error & { statusCode?: number; cause?: { message?: string } }
+    const gatewayMessage = `${gatewayError.message ?? ''} ${gatewayError.cause?.message ?? ''}`
+    if (gatewayError.statusCode === 403 && /customer_verification_required|valid credit card on file/i.test(gatewayMessage)) {
+      return NextResponse.json({
+        error: 'Vercel AI Gateway requires a verified payment method to unlock its free credits. Add a card in Vercel AI settings, then try again.',
+        actionUrl: 'https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card',
+      }, { status: 503 })
+    }
+    console.error('Career roadmap generation failed.', {
+      name: gatewayError.name,
+      statusCode: gatewayError.statusCode,
+      message: gatewayError.message,
+    })
     return NextResponse.json({ error: 'The roadmap generator is temporarily unavailable. Please try again.' }, { status: 502 })
   }
 }

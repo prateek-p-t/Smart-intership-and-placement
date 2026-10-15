@@ -13,6 +13,7 @@ export function CareerRoadmapPanel({ initialRoadmaps }: { initialRoadmaps: Caree
   const [busyId, setBusyId] = useState('')
   const [message, setMessage] = useState('')
   const [messageError, setMessageError] = useState(false)
+  const [messageActionUrl, setMessageActionUrl] = useState('')
 
   async function createRoadmap(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -24,7 +25,11 @@ export function CareerRoadmapPanel({ initialRoadmaps }: { initialRoadmaps: Caree
       if (resumeFile) formData.set('resumeFile', resumeFile)
       const response = await fetch('/api/career-roadmaps', { method: 'POST', body: formData })
       const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.error || 'Unable to create this roadmap.')
+      if (!response.ok) {
+        setMessageActionUrl(typeof result.actionUrl === 'string' ? result.actionUrl : '')
+        throw new Error(result.error || 'Unable to create this roadmap.')
+      }
+      setMessageActionUrl('')
       setRoadmaps((previous) => [result.roadmap as CareerRoadmap, ...previous].slice(0, 20))
       setTargetRole('')
       setResumeFile(null)
@@ -88,7 +93,7 @@ export function CareerRoadmapPanel({ initialRoadmaps }: { initialRoadmaps: Caree
       <label className="form-field" htmlFor="roadmap-resume-file"><span>Resume PDF <small>(optional, up to 4 MB)</small></span><input key={fileInputKey} id="roadmap-resume-file" type="file" accept="application/pdf,.pdf" onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)} /></label>
       <button className="button button-dark roadmap-create" type="submit" disabled={creating}>{creating ? <><LoaderCircle className="spin" size={15} /> Building…</> : <><Plus size={15} /> Create roadmap</>}</button>
     </form>
-    {message && <p className={messageError ? 'roadmap-message roadmap-message-error' : 'roadmap-message'} role={messageError ? 'alert' : 'status'}>{message}</p>}
+    {message && <div className={messageError ? 'roadmap-message roadmap-message-error' : 'roadmap-message'} role={messageError ? 'alert' : 'status'}><p>{message}</p>{messageActionUrl && <a href={messageActionUrl} target="_blank" rel="noreferrer">Open Vercel AI settings</a>}</div>}
     <p className="roadmap-privacy">If you select a PDF, it is sent to Vercel AI Gateway with limited profile details for skill extraction and roadmap generation. Pathway does not retain the file; only the roadmap and skill comparison are saved.</p>
 
     {roadmaps.length ? <div className="roadmap-list">{roadmaps.map((roadmap) => {
