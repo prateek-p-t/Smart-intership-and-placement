@@ -1,5 +1,18 @@
 export type ModelLifecycle = 'rules_based' | 'not_trained' | 'experimental' | 'approved' | 'offline'
-export type ModelTask = 'internship_recommendation' | 'resume_parsing' | 'salary_prediction' | 'fairness_audit'
+export type ModelTask =
+  | 'resume_parsing'
+  | 'internship_recommendation'
+  | 'job_candidate_matching'
+  | 'placement_prediction'
+  | 'eligibility_engine'
+  | 'resume_ranking'
+  | 'salary_prediction'
+  | 'skill_gap_analysis'
+  | 'interview_assistant'
+  | 'knowledge_chatbot'
+  | 'resume_classification'
+  | 'fraud_duplicate_detection'
+  | 'fairness_audit'
 
 export type TrainingContract = {
   task: ModelTask
@@ -169,44 +182,17 @@ export function recommendInternships(
 }
 
 export const modelServiceCapabilities: ServiceCapability[] = [
-  {
-    task: 'internship_recommendation',
-    displayName: 'Internship matching',
-    lifecycle: 'rules_based',
-    isTrained: false,
-    isDeployed: true,
-    description: 'Deterministic ranking by exact skill overlap and declared interests.',
-    limitation: 'Not a trained model; not an employment decision or prediction.',
-    trainingContractRequired: false,
-  },
-  {
-    task: 'resume_parsing',
-    displayName: 'Resume parsing',
-    lifecycle: 'not_trained',
-    isTrained: false,
-    isDeployed: false,
-    description: 'Structured extraction from resumes.',
-    limitation: 'Unavailable until parser validation, artifact provenance, and privacy review are complete.',
-    trainingContractRequired: true,
-  },
-  {
-    task: 'salary_prediction',
-    displayName: 'Salary prediction',
-    lifecycle: 'not_trained',
-    isTrained: false,
-    isDeployed: false,
-    description: 'Compensation range estimation.',
-    limitation: 'Unavailable without a representative, approved compensation dataset and evaluation.',
-    trainingContractRequired: true,
-  },
-  {
-    task: 'fairness_audit',
-    displayName: 'Fairness audit',
-    lifecycle: 'not_trained',
-    isTrained: false,
-    isDeployed: false,
-    description: 'Subgroup performance and outcome disparity measurement.',
-    limitation: 'Unavailable without authorized labeled outcomes and a documented audit protocol; never infers protected attributes.',
-    trainingContractRequired: true,
-  },
+  { task: 'resume_parsing', displayName: 'Resume parsing and skill extraction', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Private document text extraction with structured, confidence-labeled fields.', limitation: 'Scanned PDFs require OCR; extracted skills and contact details must be reviewed by the student.', trainingContractRequired: false },
+  { task: 'internship_recommendation', displayName: 'Internship recommendation', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Explainable ranking by exact skill overlap, interests, and published eligibility.', limitation: 'A transparent baseline only; not a trained model or hiring decision.', trainingContractRequired: false },
+  { task: 'job_candidate_matching', displayName: 'Job and candidate matching', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Feature-level comparison of stated job requirements and candidate profile.', limitation: 'Similarity is not proof of qualification; human review is required.', trainingContractRequired: false },
+  { task: 'placement_prediction', displayName: 'Placement prediction', lifecycle: 'not_trained', isTrained: false, isDeployed: false, description: 'Calibrated placement outcome estimates from authorized historical data.', limitation: 'No approved dataset or evaluated artifact is available; no probability is returned.', trainingContractRequired: true },
+  { task: 'eligibility_engine', displayName: 'Eligibility rules engine', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Auditable checks against explicit CGPA, branch, graduation-year, and skill requirements.', limitation: 'Only supplied criteria are evaluated; missing profile data does not satisfy a requirement.', trainingContractRequired: false },
+  { task: 'resume_ranking', displayName: 'Resume ranking', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Explainable baseline ranking using job-related skills and verified experience only.', limitation: 'Baseline relevance ordering only; protected characteristics are excluded and humans decide.', trainingContractRequired: false },
+  { task: 'salary_prediction', displayName: 'Salary and stipend estimation', lifecycle: 'not_trained', isTrained: false, isDeployed: false, description: 'Indicative compensation range from representative historical offers.', limitation: 'No approved compensation dataset or evaluated artifact is available.', trainingContractRequired: true },
+  { task: 'skill_gap_analysis', displayName: 'Skill-gap analysis', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Compares stated skills with role requirements and prioritizes missing skills.', limitation: 'A listed skill is not evidence of verified proficiency.', trainingContractRequired: false },
+  { task: 'interview_assistant', displayName: 'Interview practice assistant', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Role-specific practice prompts and transparent rubric-based feedback.', limitation: 'Practice feedback is not a hiring assessment or validated psychometric score.', trainingContractRequired: false },
+  { task: 'knowledge_chatbot', displayName: 'Placement knowledge assistant', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Retrieves relevant snippets from caller-authorized documents with source references.', limitation: 'The caller must filter documents by the current user’s permissions; no unsupported answer is generated.', trainingContractRequired: false },
+  { task: 'resume_classification', displayName: 'Resume classification', lifecycle: 'not_trained', isTrained: false, isDeployed: false, description: 'Supervised job-family classification from labeled resume text.', limitation: 'Unavailable until a representative labeled dataset and macro-F1 evaluation are approved.', trainingContractRequired: true },
+  { task: 'fraud_duplicate_detection', displayName: 'Duplicate and anomaly review', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Exact file-hash duplicate checks and conservative near-duplicate review flags.', limitation: 'Flags require human review and never establish dishonesty.', trainingContractRequired: false },
+  { task: 'fairness_audit', displayName: 'Fairness audit', lifecycle: 'not_trained', isTrained: false, isDeployed: false, description: 'Subgroup performance and outcome disparity measurement.', limitation: 'Requires authorized labeled outcomes and a documented audit protocol; never infers protected attributes.', trainingContractRequired: true },
 ]

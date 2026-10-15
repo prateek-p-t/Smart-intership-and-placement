@@ -11,7 +11,7 @@ import { isSameOriginRequest } from '@/lib/security/origin'
 export const runtime = 'nodejs'
 
 const contractSchema = z.object({
-  task: z.enum(['internship_recommendation', 'resume_parsing', 'salary_prediction', 'fairness_audit']),
+  task: z.enum(['resume_parsing', 'internship_recommendation', 'job_candidate_matching', 'placement_prediction', 'eligibility_engine', 'resume_ranking', 'salary_prediction', 'skill_gap_analysis', 'interview_assistant', 'knowledge_chatbot', 'resume_classification', 'fraud_duplicate_detection', 'fairness_audit']),
   datasetVersion: z.string().trim().max(160),
   datasetSource: z.string().trim().max(1000),
   dataOwner: z.string().trim().max(240),
