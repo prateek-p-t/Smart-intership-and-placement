@@ -1,10 +1,10 @@
-import { desc, eq } from 'drizzle-orm'
+import { count, desc, eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { PortalDashboard } from '@/components/portal-dashboard'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { applications, auditLogs, internships, mlModelRegistry, portalProfiles, resumeMetadata, user as users } from '@/lib/db/schema'
+import { applications, auditLogs, facultyStudentAssignments, internships, mlModelRegistry, portalProfiles, resumeMetadata, user as users } from '@/lib/db/schema'
 import { modelServiceCapabilities, recommendInternships } from '@/lib/ml-services/contracts'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   const [profile] = await db.select().from(portalProfiles).where(eq(portalProfiles.userId, session.user.id)).limit(1)
   if (!profile) throw new Error('Unable to load your workspace.')
 
-  const [listings, userApplications, recruiterListings, modelRows, resumes, recruiterApplications, reviewListings, adminUsers, adminAudit] = await Promise.all([
+  const [listings, userApplications, recruiterListings, modelRows, resumes, recruiterApplications, reviewListings, facultyStudents, facultyApplicationCounts, adminAssignments, adminUsers, adminAudit] = await Promise.all([
     profile.role === 'student'
       ? db.select().from(internships).where(eq(internships.status, 'published')).orderBy(desc(internships.createdAt)).limit(30)
       : Promise.resolve([]),
@@ -50,6 +50,25 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
     profile.role === 'placement_officer'
       ? db.select().from(internships).where(eq(internships.status, 'pending_review')).orderBy(desc(internships.createdAt)).limit(100)
+      : Promise.resolve([]),
+    profile.role === 'faculty'
+      ? db.select({ id: users.id, name: users.name, email: users.email, headline: portalProfiles.headline, institution: portalProfiles.institution, graduationYear: portalProfiles.graduationYear, branch: portalProfiles.branch, cgpa: portalProfiles.cgpa, skills: portalProfiles.skills })
+          .from(facultyStudentAssignments)
+          .innerJoin(users, eq(facultyStudentAssignments.studentUserId, users.id))
+          .innerJoin(portalProfiles, eq(facultyStudentAssignments.studentUserId, portalProfiles.userId))
+          .where(eq(facultyStudentAssignments.facultyUserId, session.user.id))
+          .orderBy(users.name).limit(100)
+      : Promise.resolve([]),
+    profile.role === 'faculty'
+      ? db.select({ studentUserId: applications.userId, applicationCount: count() })
+          .from(applications)
+          .innerJoin(facultyStudentAssignments, eq(applications.userId, facultyStudentAssignments.studentUserId))
+          .where(eq(facultyStudentAssignments.facultyUserId, session.user.id))
+          .groupBy(applications.userId)
+      : Promise.resolve([]),
+    profile.role === 'administrator'
+      ? db.select({ facultyUserId: facultyStudentAssignments.facultyUserId, studentUserId: facultyStudentAssignments.studentUserId })
+          .from(facultyStudentAssignments).orderBy(desc(facultyStudentAssignments.createdAt)).limit(500)
       : Promise.resolve([]),
     profile.role === 'administrator'
       ? db.select({ id: users.id, name: users.name, email: users.email, createdAt: users.createdAt, role: portalProfiles.role })
@@ -95,6 +114,8 @@ export default async function DashboardPage() {
     recruiterListings={recruiterListings.map((listing) => ({ id: listing.id, title: listing.title, companyName: listing.companyName, status: listing.status, deadline: listing.deadline ? String(listing.deadline) : null }))}
     recruiterApplications={recruiterApplications.map((application) => ({ ...application, skills: application.skills ?? [], createdAt: application.createdAt.toISOString() }))}
     reviewListings={reviewListings.map((listing) => ({ id: listing.id, title: listing.title, companyName: listing.companyName, location: listing.location, workMode: listing.workMode, description: listing.description, requiredSkills: listing.requiredSkills, deadline: listing.deadline ? String(listing.deadline) : null, submittedAt: listing.createdAt.toISOString() }))}
+    facultyStudents={facultyStudents.map((student) => ({ ...student, cgpa: student.cgpa === null ? null : Number(student.cgpa), skills: student.skills ?? [], applicationCount: facultyApplicationCounts.find((entry) => entry.studentUserId === student.id)?.applicationCount ?? 0 }))}
+    adminAssignments={adminAssignments}
     adminUsers={adminUsers.map((entry) => ({ ...entry, role: entry.role ?? 'student', createdAt: entry.createdAt.toISOString() }))}
     adminAudit={adminAudit.map((entry) => ({ ...entry, createdAt: entry.createdAt.toISOString() }))}
     modelRows={modelRows.map((model) => ({ id: model.id, modelName: model.modelName, task: model.task, version: model.version, trainingStatus: model.trainingStatus, approvalStatus: model.approvalStatus, deploymentStatus: model.deploymentStatus, evaluationMetrics: model.evaluationMetrics && typeof model.evaluationMetrics === 'object' && !Array.isArray(model.evaluationMetrics) ? model.evaluationMetrics as Record<string, unknown> : {} }))}

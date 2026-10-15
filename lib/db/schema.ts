@@ -1,4 +1,4 @@
-import { bigint, boolean, date, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import { bigint, boolean, date, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -86,6 +86,13 @@ export const applications = pgTable('applications', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex('applications_user_id_internship_id_key').on(table.userId, table.internshipId)])
+
+export const facultyStudentAssignments = pgTable('faculty_student_assignments', {
+  facultyUserId: text('faculty_user_id').notNull(),
+  studentUserId: text('student_user_id').notNull(),
+  assignedByUserId: text('assigned_by_user_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [primaryKey({ columns: [table.facultyUserId, table.studentUserId], name: 'faculty_student_assignments_pkey' })])
 
 export const resumeMetadata = pgTable('resume_metadata', {
   id: text('id').primaryKey(),
