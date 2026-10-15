@@ -106,6 +106,22 @@ export const resumeMetadata = pgTable('resume_metadata', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+export const careerRoadmaps = pgTable('career_roadmaps', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  targetRole: text('target_role').notNull(),
+  targetSkills: jsonb('target_skills').$type<string[]>().notNull().default([]),
+  matchedSkills: jsonb('matched_skills').$type<string[]>().notNull().default([]),
+  missingSkills: jsonb('missing_skills').$type<string[]>().notNull().default([]),
+  matchScore: integer('match_score').notNull().default(0),
+  roleSummary: text('role_summary').notNull(),
+  milestones: jsonb('milestones').$type<CareerRoadmapMilestone[]>().notNull().default([]),
+  sourceResumeId: text('source_resume_id'),
+  completedMilestones: jsonb('completed_milestones').$type<string[]>().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const notifications = pgTable('notifications', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),

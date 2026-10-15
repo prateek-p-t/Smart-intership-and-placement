@@ -4,8 +4,9 @@ import { redirect } from 'next/navigation'
 import { PortalDashboard } from '@/components/portal-dashboard'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { applications, auditLogs, facultyStudentAssignments, internships, mlModelRegistry, portalProfiles, resumeMetadata, user as users } from '@/lib/db/schema'
+import { applications, auditLogs, careerRoadmaps, facultyStudentAssignments, internships, mlModelRegistry, portalProfiles, resumeMetadata, user as users } from '@/lib/db/schema'
 import { modelServiceCapabilities, recommendInternships } from '@/lib/ml-services/contracts'
+import { serializeCareerRoadmap } from '@/lib/portal/roadmap-types'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,6 +81,10 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
   ])
 
+  const roadmaps = profile.role === 'student'
+    ? await db.select().from(careerRoadmaps).where(eq(careerRoadmaps.userId, session.user.id)).orderBy(desc(careerRoadmaps.updatedAt)).limit(20)
+    : []
+
   const recommendations = profile.role === 'student'
     ? recommendInternships(
         {
@@ -120,5 +125,6 @@ export default async function DashboardPage() {
     adminAudit={adminAudit.map((entry) => ({ ...entry, createdAt: entry.createdAt.toISOString() }))}
     modelRows={modelRows.map((model) => ({ id: model.id, modelName: model.modelName, task: model.task, version: model.version, trainingStatus: model.trainingStatus, approvalStatus: model.approvalStatus, deploymentStatus: model.deploymentStatus, evaluationMetrics: model.evaluationMetrics && typeof model.evaluationMetrics === 'object' && !Array.isArray(model.evaluationMetrics) ? model.evaluationMetrics as Record<string, unknown> : {} }))}
     resumes={resumes.map((resume) => ({ ...resume, createdAt: resume.createdAt.toISOString() }))}
+    roadmaps={roadmaps.map((row) => serializeCareerRoadmap({ id: row.id, targetRole: row.targetRole, targetSkills: row.targetSkills, matchedSkills: row.matchedSkills, missingSkills: row.missingSkills, matchScore: row.matchScore, roleSummary: row.roleSummary, milestones: row.milestones, sourceResumeId: row.sourceResumeId, completedMilestones: row.completedMilestones, createdAt: row.createdAt, updatedAt: row.updatedAt }))}
   />
 }
