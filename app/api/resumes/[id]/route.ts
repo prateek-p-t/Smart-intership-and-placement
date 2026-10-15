@@ -16,25 +16,31 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (profile?.role !== 'student') return NextResponse.json({ error: 'Resume access is available to student accounts only.' }, { status: 403 })
 
   const { id } = await params
-  const [resume] = await db.select({ storageKey: resumeMetadata.storageKey, originalName: resumeMetadata.originalName })
+  const [resume] = await db.select({ storageKey: resumeMetadata.storageKey, originalName: resumeMetadata.originalName, fileData: resumeMetadata.fileData })
     .from(resumeMetadata)
     .where(and(eq(resumeMetadata.id, id), eq(resumeMetadata.userId, session.user.id)))
     .limit(1)
   if (!resume) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
 
+  const filename = resume.originalName.replace(/[^\x20-\x7E"\\]/g, '_')
+  const downloadHeaders = {
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(resume.originalName)}`,
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+  }
+
+  if (resume.fileData) {
+    const file = Buffer.from(resume.fileData)
+    return new Response(file, { headers: { ...downloadHeaders, 'Content-Length': String(file.byteLength) } })
+  }
+
   try {
     const blob = await get(resume.storageKey, { access: 'private' })
     if (!blob || blob.statusCode === 304) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
 
-    const filename = resume.originalName.replace(/[^\x20-\x7E"\\]/g, '_')
     return new Response(blob.stream, {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(resume.originalName)}`,
-        'Content-Length': String(blob.blob.size),
-        'Cache-Control': 'private, no-store',
-        'X-Content-Type-Options': 'nosniff',
-      },
+      headers: { ...downloadHeaders, 'Content-Length': String(blob.blob.size) },
     })
   } catch (error) {
     console.error('Resume download failed.', error)

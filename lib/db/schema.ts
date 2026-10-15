@@ -1,4 +1,4 @@
-import { bigint, boolean, date, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import { bigint, boolean, customType, date, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import type { CareerRoadmapMilestone } from '../portal/roadmap-types'
 
 export const user = pgTable('user', {
@@ -95,6 +95,10 @@ export const facultyStudentAssignments = pgTable('faculty_student_assignments', 
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [primaryKey({ columns: [table.facultyUserId, table.studentUserId], name: 'faculty_student_assignments_pkey' })])
 
+const resumeFileData = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => 'bytea',
+})
+
 export const resumeMetadata = pgTable('resume_metadata', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
@@ -103,6 +107,7 @@ export const resumeMetadata = pgTable('resume_metadata', {
   mediaType: text('media_type').notNull(),
   byteSize: bigint('byte_size', { mode: 'number' }).notNull(),
   sha256: text('sha256'),
+  fileData: resumeFileData('file_data'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

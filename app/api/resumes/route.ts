@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { del, put } from '@vercel/blob'
+import { del } from '@vercel/blob'
 import { and, eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
@@ -61,43 +61,26 @@ export async function POST(request: Request) {
   }
 
   const id = crypto.randomUUID()
-  const pathname = `resumes/${session.user.id}/${id}.pdf`
   const originalName = (file.name.split(/[\\/]/).pop() ?? 'resume.pdf').replace(/[^\p{L}\p{N}._ -]/gu, '').trim().slice(0, 160) || 'resume.pdf'
   const sha256 = createHash('sha256').update(bytes).digest('hex')
 
   try {
-    const blob = await put(pathname, bytes, {
-      access: 'private',
-      addRandomSuffix: false,
-      allowOverwrite: false,
-      contentType: 'application/pdf',
-      cacheControlMaxAge: 60,
+    const [resume] = await db.transaction(async (tx) => {
+      const inserted = await tx.insert(resumeMetadata).values({
+        id,
+        userId: session.user.id,
+        storageKey: `neon:${id}`,
+        originalName,
+        mediaType: 'application/pdf',
+        byteSize: file.size,
+        sha256,
+        fileData: bytes,
+      }).returning({ id: resumeMetadata.id, originalName: resumeMetadata.originalName, byteSize: resumeMetadata.byteSize, createdAt: resumeMetadata.createdAt })
+      await tx.insert(auditLogs).values({ id: crypto.randomUUID(), actorUserId: session.user.id, action: 'resume.uploaded', resourceType: 'resume', resourceId: id, metadata: { byteSize: file.size, mediaType: 'application/pdf' } })
+      return inserted
     })
 
-    try {
-      const [resume] = await db.transaction(async (tx) => {
-        const inserted = await tx.insert(resumeMetadata).values({
-          id,
-          userId: session.user.id,
-          storageKey: blob.pathname,
-          originalName,
-          mediaType: 'application/pdf',
-          byteSize: file.size,
-          sha256,
-        }).returning({ id: resumeMetadata.id, originalName: resumeMetadata.originalName, byteSize: resumeMetadata.byteSize, createdAt: resumeMetadata.createdAt })
-        await tx.insert(auditLogs).values({ id: crypto.randomUUID(), actorUserId: session.user.id, action: 'resume.uploaded', resourceType: 'resume', resourceId: id, metadata: { byteSize: file.size, mediaType: 'application/pdf' } })
-        return inserted
-      })
-
-      return NextResponse.json({ resume: { ...resume, createdAt: resume.createdAt.toISOString() } }, { status: 201, headers: { 'Cache-Control': 'private, no-store' } })
-    } catch (error) {
-      try {
-        await del(blob.pathname)
-      } catch (cleanupError) {
-        console.error('Resume blob cleanup failed after metadata insert error.', cleanupError)
-      }
-      throw error
-    }
+    return NextResponse.json({ resume: { ...resume, createdAt: resume.createdAt.toISOString() } }, { status: 201, headers: { 'Cache-Control': 'private, no-store' } })
   } catch (error) {
     console.error('Resume upload failed.', error)
     return NextResponse.json({ error: 'Unable to save your resume right now. Please try again.' }, { status: 500 })
@@ -122,14 +105,14 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Choose a resume to delete.' }, { status: 400 })
   }
 
-  const [resume] = await db.select({ id: resumeMetadata.id, storageKey: resumeMetadata.storageKey })
+  const [resume] = await db.select({ id: resumeMetadata.id, storageKey: resumeMetadata.storageKey, fileData: resumeMetadata.fileData })
     .from(resumeMetadata)
     .where(and(eq(resumeMetadata.id, body.id), eq(resumeMetadata.userId, session.user.id)))
     .limit(1)
   if (!resume) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
 
   try {
-    await del(resume.storageKey)
+    if (!resume.fileData) await del(resume.storageKey)
     await db.transaction(async (tx) => {
       await tx.delete(resumeMetadata).where(eq(resumeMetadata.id, resume.id))
       await tx.insert(auditLogs).values({ id: crypto.randomUUID(), actorUserId: session.user.id, action: 'resume.deleted', resourceType: 'resume', resourceId: resume.id, metadata: {} })
