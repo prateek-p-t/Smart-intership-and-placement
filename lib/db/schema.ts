@@ -1,4 +1,5 @@
 import { bigint, boolean, date, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import type { CareerRoadmapMilestone } from '../portal/roadmap-types'
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
