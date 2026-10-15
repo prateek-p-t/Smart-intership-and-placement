@@ -14,6 +14,7 @@
     "@hookform/resolvers": "^5.9.1",
     "@vercel/analytics": "1.6.1",
     "@vercel/blob": "^2.8.1",
+    "ai": "^7.0.140",
     "better-auth": "^1.7.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
