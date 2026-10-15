@@ -23,12 +23,16 @@ type Listing = {
 type Profile = { role: string; headline: string | null; institution: string | null; graduationYear: number | null; branch: string | null; cgpa: string | null; skills: string[]; interests: string[] }
 type Application = { id: string; status: string; createdAt: string; internshipId: string; title: string; companyName: string }
 type RecruiterListing = { id: string; title: string; companyName: string; status: string; deadline: string | null }
+type RecruiterApplication = { id: string; status: string; createdAt: string; title: string; companyName: string; applicantName: string; headline: string | null; branch: string | null; graduationYear: number | null; skills: string[] }
+type ReviewListing = { id: string; title: string; companyName: string; location: string; workMode: string; description: string; requiredSkills: string[]; deadline: string | null; submittedAt: string }
+type AdminUser = { id: string; name: string; email: string; createdAt: string; role: string }
+type AuditEntry = { id: string; action: string; resourceType: string; resourceId: string | null; metadata: unknown; createdAt: string; actorName: string | null }
 type ModelRow = { id: string; modelName: string; task: string; version: string; trainingStatus: string; approvalStatus: string; deploymentStatus: string; evaluationMetrics: Record<string, unknown> }
 type Resume = { id: string; originalName: string; byteSize: number; createdAt: string }
 type NavItem = { id: string; label: string; icon: typeof LayoutDashboard }
 
-export function PortalDashboard({ user, profile: initialProfile, listings, applications, recruiterListings, modelRows, resumes: initialResumes }: {
-  user: { id: string; name: string; email: string }; profile: Profile; listings: Listing[]; applications: Application[]; recruiterListings: RecruiterListing[]; modelRows: ModelRow[]; resumes: Resume[]
+export function PortalDashboard({ user, profile: initialProfile, listings, applications, recruiterListings, recruiterApplications, reviewListings, adminUsers, adminAudit, modelRows, resumes: initialResumes }: {
+  user: { id: string; name: string; email: string }; profile: Profile; listings: Listing[]; applications: Application[]; recruiterListings: RecruiterListing[]; recruiterApplications: RecruiterApplication[]; reviewListings: ReviewListing[]; adminUsers: AdminUser[]; adminAudit: AuditEntry[]; modelRows: ModelRow[]; resumes: Resume[]
 }) {
   const router = useRouter()
   const [profile, setProfile] = useState(initialProfile)
@@ -39,8 +43,11 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
   const [appliedIds, setAppliedIds] = useState(() => new Set(applications.map((application) => application.internshipId)))
   const [pendingId, setPendingId] = useState('')
   const [notice, setNotice] = useState('')
+  const [noticeError, setNoticeError] = useState(false)
+  const showNotice = (message: string, isError = false) => { setNotice(message); setNoticeError(isError) }
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
+  const [changingRoleId, setChangingRoleId] = useState('')
   const role = profile.role
 
   const navItems: NavItem[] = useMemo(() => {
@@ -78,16 +85,16 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
 
   async function apply(listingId: string) {
     setPendingId(listingId)
-    setNotice('')
+    showNotice('')
     try {
       const response = await fetch('/api/applications', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ internshipId: listingId }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to submit this application.')
       setAppliedIds((previous) => new Set(previous).add(listingId))
-      setNotice('Your application has been submitted.')
+      showNotice('Your application has been submitted.')
       router.refresh()
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Unable to submit this application.')
+      showNotice(error instanceof Error ? error.message : 'Unable to submit this application.', true)
     } finally {
       setPendingId('')
     }
@@ -97,7 +104,7 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     setSaving(true)
-    setNotice('')
+    showNotice('')
     try {
       const response = await fetch('/api/profile', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
         headline: formData.get('headline'), institution: formData.get('institution'), branch: formData.get('branch'), graduationYear: formData.get('graduationYear') || null, cgpa: formData.get('cgpa') || null,
@@ -107,10 +114,10 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to save your profile.')
       setProfile({ ...profile, ...result.profile })
-      setNotice('Your profile has been saved.')
+      showNotice('Your profile has been saved.')
       router.refresh()
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Unable to save your profile.')
+      showNotice(error instanceof Error ? error.message : 'Unable to save your profile.', true)
     } finally {
       setSaving(false)
     }
@@ -121,15 +128,15 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
     const form = event.currentTarget
     const file = new FormData(form).get('file')
     if (!(file instanceof File) || file.size === 0) {
-      setNotice('Choose a PDF resume to upload.')
+      showNotice('Choose a PDF resume to upload.', true)
       return
     }
     if (file.size > 4 * 1024 * 1024) {
-      setNotice('Resume must be 4 MB or smaller.')
+      showNotice('Resume must be 4 MB or smaller.', true)
       return
     }
     setUploadingResume(true)
-    setNotice('')
+    showNotice('')
     try {
       const data = new FormData()
       data.append('file', file)
@@ -138,10 +145,10 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
       if (!response.ok) throw new Error(result.error || 'Unable to upload this resume.')
       setResumes((previous) => [result.resume as Resume, ...previous].slice(0, 10))
       form.reset()
-      setNotice('Your resume has been uploaded securely.')
+      showNotice('Your resume has been uploaded securely.')
       router.refresh()
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Unable to upload this resume.')
+      showNotice(error instanceof Error ? error.message : 'Unable to upload this resume.', true)
     } finally {
       setUploadingResume(false)
     }
@@ -149,16 +156,16 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
 
   async function deleteResume(id: string) {
     setDeletingResumeId(id)
-    setNotice('')
+    showNotice('')
     try {
       const response = await fetch('/api/resumes', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to delete this resume.')
       setResumes((previous) => previous.filter((resume) => resume.id !== id))
-      setNotice('Your resume has been deleted.')
+      showNotice('Your resume has been deleted.')
       router.refresh()
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Unable to delete this resume.')
+      showNotice(error instanceof Error ? error.message : 'Unable to delete this resume.', true)
     } finally {
       setDeletingResumeId('')
     }
@@ -169,7 +176,7 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
     const form = event.currentTarget
     const data = new FormData(form)
     setSaving(true)
-    setNotice('')
+    showNotice('')
     try {
       const response = await fetch('/api/internships', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
         title: data.get('title'), companyName: data.get('companyName'), location: data.get('location'), description: data.get('description'), workMode: data.get('workMode'), requiredSkills: String(data.get('requiredSkills') ?? '').split(',').map((skill) => skill.trim()).filter(Boolean), deadline: data.get('deadline') || null,
@@ -177,12 +184,60 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to submit this listing.')
       form.reset()
-      setNotice('Opportunity submitted for placement-office review.')
+      showNotice('Opportunity submitted for placement-office review.')
       router.refresh()
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Unable to submit this listing.')
+      showNotice(error instanceof Error ? error.message : 'Unable to submit this listing.', true)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function reviewListing(listingId: string, decision: 'publish' | 'reject') {
+    setPendingId(listingId)
+    showNotice('')
+    try {
+      const response = await fetch('/api/placement/listings', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ listingId, decision }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Unable to update this listing.')
+      showNotice(decision === 'publish' ? 'Listing approved and published.' : 'Listing rejected.')
+      router.refresh()
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : 'Unable to update this listing.', true)
+    } finally {
+      setPendingId('')
+    }
+  }
+
+  async function updateApplicationStage(applicationId: string, status: string) {
+    setPendingId(applicationId)
+    showNotice('')
+    try {
+      const response = await fetch(`/api/applications/${encodeURIComponent(applicationId)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Unable to update this application.')
+      showNotice('Application stage updated.')
+      router.refresh()
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : 'Unable to update this application.', true)
+    } finally {
+      setPendingId('')
+    }
+  }
+
+  async function changeRole(targetUserId: string, nextRole: string) {
+    setChangingRoleId(targetUserId)
+    showNotice('')
+    try {
+      const response = await fetch('/api/admin/users', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId: targetUserId, role: nextRole }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Unable to update this role.')
+      showNotice('Account role updated.')
+      router.refresh()
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : 'Unable to update this role.', true)
+    } finally {
+      setChangingRoleId('')
     }
   }
 
@@ -197,19 +252,19 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
       <aside className="dashboard-sidebar">
         <a href="/" className="dash-brand"><span className="brand-mark"><BriefcaseBusiness size={16} /></span><span>pathway<span className="brand-period">.</span></span></a>
         <div className="sidebar-section-label">WORKSPACE</div>
-        <nav className="dashboard-nav" aria-label="Workspace navigation">{navItems.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-current={active === id ? 'page' : undefined} onClick={() => { setActive(id); setNotice('') }}><Icon size={16} /><span>{label}</span></button>)}</nav>
+        <nav className="dashboard-nav" aria-label="Workspace navigation">{navItems.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-current={active === id ? 'page' : undefined} onClick={() => { setActive(id); showNotice('') }}><Icon size={16} /><span>{label}</span></button>)}</nav>
         <div className="dashboard-sidebar-foot"><span className="role-chip">{roleLabel.toUpperCase()}</span><span>Access follows your assigned role.</span></div>
       </aside>
       <section className="dashboard-main">
         <header className="dashboard-topbar"><button type="button" className="icon-button" aria-label="Notifications"><Bell size={15} /></button><div className="signed-in-user"><span className="user-avatar">{initials(user.name)}</span><span>{user.name}</span></div><button className="signout-button" type="button" onClick={handleSignOut}>Sign out</button></header>
         <div className="dashboard-content">
           <div className="dashboard-welcome"><div><div className="eyebrow"><span className="eyebrow-dot" /> YOUR {roleLabel.toUpperCase()} WORKSPACE</div><h1>{active === 'overview' ? `Good to see you, ${user.name.split(' ')[0]}.` : navItems.find((item) => item.id === active)?.label}</h1><p>{active === 'overview' ? role === 'student' ? 'Your next opportunity starts with a clear view of what fits.' : `Your ${roleLabel.toLowerCase()} tools and authorized records, all in one place.` : 'Explore the information and tools available to your account.'}</p></div>{role === 'student' && <div className="profile-row"><span>PROFILE DETAILS</span><span><i style={{ width: `${profileCompleteness(profile)}%` }} /></span><strong>{profileCompleteness(profile)}%</strong></div>}</div>
-          {notice && <div className={notice.includes('unable') || notice.includes('Unable') ? 'form-error' : 'profile-success'} role="status">{notice}</div>}
+          {notice && <div className={noticeError ? 'form-error' : 'profile-success'} role={noticeError ? 'alert' : 'status'}>{notice}</div>}
           {role === 'student' && <StudentContent active={active} profile={profile} listings={filteredListings} applications={applications} appliedIds={appliedIds} pendingId={pendingId} onApply={apply} search={search} onSearch={setSearch} onSaveProfile={saveProfile} saving={saving} resumes={resumes} onUploadResume={uploadResume} onDeleteResume={deleteResume} uploadingResume={uploadingResume} deletingResumeId={deletingResumeId} />}
-          {role === 'company_recruiter' && <RecruiterContent active={active} listings={recruiterListings} onCreate={createListing} saving={saving} />}
+          {role === 'company_recruiter' && <RecruiterContent active={active} listings={recruiterListings} applications={recruiterApplications} onCreate={createListing} onStageChange={updateApplicationStage} pendingId={pendingId} saving={saving} />}
           {role === 'faculty' && <FacultyContent active={active} />}
-          {role === 'placement_officer' && <PlacementContent active={active} />}
-          {role === 'administrator' && <AdminContent active={active} models={modelRows} />}
+          {role === 'placement_officer' && <PlacementContent active={active} listings={reviewListings} onDecision={reviewListing} pendingId={pendingId} />}
+          {role === 'administrator' && <AdminContent active={active} models={modelRows} users={adminUsers} audit={adminAudit} currentUserId={user.id} changingRoleId={changingRoleId} onRoleChange={changeRole} />}
           <footer className="dashboard-footer"><span>Pathway · University career workspace</span><span>Eligibility uses published criteria. Recommendations are explainable, not decisions.</span></footer>
         </div>
       </section>
@@ -260,20 +315,23 @@ function ListingList({ listings, profile, appliedIds, pendingId, onApply }: { li
   })}</div>
 }
 
-function RecruiterContent({ active, listings, onCreate, saving }: { active: string; listings: RecruiterListing[]; onCreate: (event: FormEvent<HTMLFormElement>) => void; saving: boolean }) {
+function RecruiterContent({ active, listings, applications, onCreate, onStageChange, pendingId, saving }: { active: string; listings: RecruiterListing[]; applications: RecruiterApplication[]; onCreate: (event: FormEvent<HTMLFormElement>) => void; onStageChange: (id: string, status: string) => void; pendingId: string; saving: boolean }) {
   if (active === 'create-listing') return <section className="dashboard-section"><div className="section-heading"><div><h2>Submit an opportunity</h2><p>New listings enter review and won&apos;t appear to students until approved.</p></div></div><form className="profile-form" onSubmit={onCreate}><label className="form-field"><span>Role title</span><input name="title" required maxLength={120} /></label><label className="form-field"><span>Company name</span><input name="companyName" required maxLength={120} /></label><label className="form-field"><span>Location</span><input name="location" required maxLength={160} /></label><label className="form-field"><span>Work mode</span><select name="workMode" defaultValue="Hybrid"><option>On-site</option><option>Hybrid</option><option>Remote</option></select></label><label className="form-field"><span>Required skills</span><input name="requiredSkills" placeholder="Python, SQL, React" maxLength={800} /></label><label className="form-field"><span>Application deadline</span><input name="deadline" type="date" /></label><label className="form-field full-field"><span>Description</span><textarea name="description" required minLength={30} maxLength={3000} rows={5} /></label><div className="profile-form-actions"><button className="button button-dark" type="submit" disabled={saving}>{saving ? 'Submitting…' : 'Submit for review'}</button></div></form></section>
-  return <><div className="dashboard-summary"><div className="summary-card"><span>Listings you own</span><strong>{listings.length}</strong><small>Restricted to your account</small></div><div className="summary-card"><span>Published</span><strong>{listings.filter((listing) => listing.status === 'published').length}</strong><small>Visible in the student marketplace</small></div><div className="summary-card"><span>Pending review</span><strong>{listings.filter((listing) => listing.status === 'pending_review').length}</strong><small>Awaiting placement-office approval</small></div></div><section className="dashboard-section"><div className="section-heading"><div><h2>{active === 'listings' ? 'Your listings' : 'Recruitment workspace'}</h2><p>Listings and status are scoped to your verified recruiter account.</p></div></div>{listings.length ? <div className="application-list">{listings.map((listing) => <div key={listing.id} className="application-row"><div><strong>{listing.title}</strong><p>{listing.companyName}{listing.deadline ? ` · Deadline ${listing.deadline}` : ''}</p></div><span className="status-pill">{listing.status.replaceAll('_', ' ')}</span></div>)}</div> : <div className="empty-state"><strong>No listings yet</strong><p>Submit a role and the placement office can review it for publication.</p></div>}</section></>
+  return <><div className="dashboard-summary"><div className="summary-card"><span>Listings you own</span><strong>{listings.length}</strong><small>Restricted to your account</small></div><div className="summary-card"><span>Published</span><strong>{listings.filter((listing) => listing.status === 'published').length}</strong><small>Visible in the student marketplace</small></div><div className="summary-card"><span>Applications</span><strong>{applications.length}</strong><small>Only applications to your listings</small></div></div><section className="dashboard-section"><div className="section-heading"><div><h2>{active === 'listings' ? 'Your listings' : 'Recruitment workspace'}</h2><p>Listings and status are scoped to your recruiter account.</p></div></div>{listings.length ? <div className="application-list">{listings.map((listing) => <div key={listing.id} className="application-row"><div><strong>{listing.title}</strong><p>{listing.companyName}{listing.deadline ? ` · Deadline ${listing.deadline}` : ''}</p></div><span className="status-pill">{listing.status.replaceAll('_', ' ')}</span></div>)}</div> : <div className="empty-state"><strong>No listings yet</strong><p>Submit a role and the placement office can review it for publication.</p></div>}</section><section className="dashboard-section"><div className="section-heading"><div><h2>Applicant pipeline</h2><p>Review applications for listings owned by your account. Resume files remain private to each student.</p></div></div>{applications.length ? <div className="application-list">{applications.map((application) => <div key={application.id} className="application-row applicant-row"><div><strong>{application.applicantName}</strong><p>{application.title} · {application.companyName}</p><span className="applicant-detail">{[application.headline, application.branch, application.graduationYear ? `Class of ${application.graduationYear}` : null, application.skills.slice(0, 5).join(', ') || null].filter(Boolean).join(' · ') || 'No profile details shared'}</span></div><label className="stage-control"><span className="sr-only">Update application stage for {application.applicantName}</span><select className="stage-select" value={application.status} disabled={Boolean(pendingId) || ['offered', 'rejected'].includes(application.status)} onChange={(event) => onStageChange(application.id, event.target.value)}><option value={application.status}>{application.status.replaceAll('_', ' ')}</option>{!['reviewing', 'interview', 'offered', 'rejected'].includes(application.status) && <option value="reviewing">reviewing</option>}{['reviewing', 'interview', 'offered', 'rejected'].map((stage) => stage !== application.status && <option key={stage} value={stage}>{stage}</option>)}</select></label></div>)}</div> : <div className="empty-state"><strong>No applications yet</strong><p>Applications to your published listings will appear here.</p></div>}</section></>
 }
 
 function FacultyContent({ active }: { active: string }) {
   return <><div className="dashboard-summary"><div className="summary-card"><span>Assigned cohorts</span><strong>—</strong><small>Assignment scope not configured</small></div><div className="summary-card"><span>Student records</span><strong>Private</strong><small>Only assigned students are visible</small></div><div className="summary-card"><span>Academic insights</span><strong>—</strong><small>No authorized report data yet</small></div></div><section className="dashboard-section"><div className="section-heading"><div><h2>{active === 'reports' ? 'Academic reports' : 'Student progress'}</h2><p>Faculty access is limited to student records assigned by the institution.</p></div></div><div className="empty-state"><strong>No student cohort has been assigned</strong><p>Ask an administrator to configure a faculty-to-cohort assignment before student records are available.</p></div></section></>
 }
 
-function PlacementContent({ active }: { active: string }) {
-  return <><div className="dashboard-summary"><div className="summary-card"><span>Listings for review</span><strong>—</strong><small>Review queue is being configured</small></div><div className="summary-card"><span>Placement records</span><strong>Private</strong><small>Only verified aggregate reports</small></div><div className="summary-card"><span>Candidate decisions</span><strong>Human-led</strong><small>No model makes hiring decisions</small></div></div><section className="dashboard-section"><div className="section-heading"><div><h2>{active === 'reports' ? 'Placement reports' : 'Recruitment operations'}</h2><p>Review access will be added after the institution defines its approval workflow.</p></div></div><div className="empty-state"><strong>No review queue available</strong><p>Listing publication requires a configured placement-office approval and audit workflow.</p></div></section></>
+function PlacementContent({ active, listings, onDecision, pendingId }: { active: string; listings: ReviewListing[]; onDecision: (id: string, decision: 'publish' | 'reject') => void; pendingId: string }) {
+  if (active === 'reports') return <><div className="dashboard-summary"><div className="summary-card"><span>Listings awaiting review</span><strong>{listings.length}</strong><small>Current queue</small></div><div className="summary-card"><span>Placement records</span><strong>Private</strong><small>Only verified aggregate reports</small></div><div className="summary-card"><span>Candidate decisions</span><strong>Human-led</strong><small>No model makes hiring decisions</small></div></div><section className="dashboard-section"><div className="section-heading"><div><h2>Placement reports</h2><p>Aggregate placement reporting is unavailable until institution-level cohort assignments are configured.</p></div></div><div className="empty-state"><strong>No authorized placement report data</strong><p>Reporting is intentionally withheld until approved data scopes are assigned.</p></div></section></>
+  return <><div className="dashboard-summary"><div className="summary-card"><span>Listings awaiting review</span><strong>{listings.length}</strong><small>Human review required</small></div><div className="summary-card"><span>Queue limit</span><strong>{listings.length === 100 ? '100+' : listings.length}</strong><small>Most recent submissions</small></div><div className="summary-card"><span>Publication</span><strong>Manual</strong><small>Published only after review</small></div></div><section className="dashboard-section"><div className="section-heading"><div><h2>Listing review queue</h2><p>Review the role details before publishing. Decisions are recorded in the audit log.</p></div></div>{listings.length ? <div className="job-list">{listings.map((listing) => <article className="job-card review-card" key={listing.id}><div className="job-card-top"><div><h3>{listing.title}</h3><p>{listing.companyName} · {listing.location} · {listing.workMode}</p></div><span className="status-pill">Pending review</span></div><p className="job-description">{listing.description}</p>{listing.requiredSkills.length > 0 && <div className="skill-list">{listing.requiredSkills.map((skill) => <span className="skill-chip" key={skill}>{skill}</span>)}</div>}<p className="review-meta">Submitted {new Date(listing.submittedAt).toLocaleDateString()}{listing.deadline ? ` · Deadline ${listing.deadline}` : ''}</p><div className="review-actions"><button className="button button-dark" type="button" disabled={Boolean(pendingId)} onClick={() => onDecision(listing.id, 'publish')}>{pendingId === listing.id ? 'Saving…' : 'Approve and publish'}</button><button className="button button-secondary" type="button" disabled={Boolean(pendingId)} onClick={() => onDecision(listing.id, 'reject')}>Reject listing</button></div></article>)}</div> : <div className="empty-state"><strong>No listings awaiting review</strong><p>New recruiter submissions will appear here for a human decision.</p></div>}</section></>
 }
 
-function AdminContent({ active, models }: { active: string; models: ModelRow[] }) {
+function AdminContent({ active, models, users, audit, currentUserId, changingRoleId, onRoleChange }: { active: string; models: ModelRow[]; users: AdminUser[]; audit: AuditEntry[]; currentUserId: string; changingRoleId: string; onRoleChange: (userId: string, role: string) => void }) {
   if (active === 'models') return <section className="dashboard-section"><div className="section-heading"><div><h2>Independent ML task registry</h2><p>Registry status comes from the database. No model is marked trained by default.</p></div><span className="role-chip">{models.length} REGISTERED</span></div>{models.length ? <div className="application-list">{models.map((model) => <div key={model.id} className="application-row"><div><strong>{model.modelName} · {model.version}</strong><p>{model.task} · {Object.keys(model.evaluationMetrics ?? {}).length ? 'Evaluation recorded' : 'No evaluation metrics recorded'}</p></div><span className="status-pill">{model.trainingStatus.replaceAll('_', ' ')} · {model.approvalStatus}</span></div>)}</div> : <div className="empty-state"><strong>No model artifacts registered</strong><p>Tasks stay offline until training, evaluation, review, and approval are recorded.</p></div>}</section>
-  return <><div className="dashboard-summary"><div className="summary-card"><span>Model artifacts</span><strong>{models.length}</strong><small>Loaded from the registry</small></div><div className="summary-card"><span>Deployment status</span><strong>Offline</strong><small>Until documented approval</small></div><div className="summary-card"><span>Access model</span><strong>Role-based</strong><small>Elevated roles are assigned server-side</small></div></div><section className="dashboard-section"><div className="section-heading"><div><h2>{active === 'users' ? 'Role access' : active === 'audit' ? 'Audit activity' : 'Administrator overview'}</h2><p>Privileged access and record-level scopes are enforced by server routes.</p></div></div><div className="empty-state"><strong>Administrator tools are not exposed to self-registered accounts</strong><p>Role assignment, audit review, and data retention settings require an administrator account created through the institution&apos;s verified process.</p></div></section></>
+  if (active === 'users') return <section className="dashboard-section"><div className="section-heading"><div><h2>Role access</h2><p>Elevated roles are managed by administrators and every role change is audited.</p></div><span className="role-chip">{users.length} ACCOUNTS</span></div>{users.length ? <div className="application-list">{users.map((entry) => <div className="application-row admin-user-row" key={entry.id}><div><strong>{entry.name}</strong><p>{entry.email} · Joined {new Date(entry.createdAt).toLocaleDateString()}</p></div><label className="stage-control"><span className="sr-only">Role for {entry.name}</span><select className="stage-select" value={entry.role} disabled={Boolean(changingRoleId) || entry.id === currentUserId} onChange={(event) => onRoleChange(entry.id, event.target.value)}>{['student', 'company_recruiter', 'faculty', 'placement_officer', 'administrator'].map((roleOption) => <option key={roleOption} value={roleOption}>{displayRole(roleOption)}</option>)}</select></label></div>)}</div> : <div className="empty-state"><strong>No user accounts found</strong></div>}</section>
+  if (active === 'audit') return <section className="dashboard-section"><div className="section-heading"><div><h2>Audit activity</h2><p>Recent privileged changes and account activity.</p></div><span className="role-chip">{audit.length} EVENTS</span></div>{audit.length ? <div className="application-list">{audit.map((entry) => <div className="application-row audit-row" key={entry.id}><div><strong>{entry.action.replaceAll('.', ' ')}</strong><p>{entry.actorName ?? 'System'} · {entry.resourceType}{entry.resourceId ? ` · ${entry.resourceId}` : ''} · {new Date(entry.createdAt).toLocaleString()}</p><span className="applicant-detail">{JSON.stringify(entry.metadata ?? {})}</span></div></div>)}</div> : <div className="empty-state"><strong>No audit events recorded</strong></div>}</section>
+  return <><div className="dashboard-summary"><div className="summary-card"><span>Model artifacts</span><strong>{models.length}</strong><small>Loaded from the registry</small></div><div className="summary-card"><span>Accounts in scope</span><strong>{users.length}</strong><small>Recent 200 user records</small></div><div className="summary-card"><span>Audit events</span><strong>{audit.length}</strong><small>Recent 100 events</small></div></div><section className="dashboard-section"><div className="section-heading"><div><h2>Administrator overview</h2><p>Privileged access and record-level scopes are enforced by server routes.</p></div></div><div className="empty-state"><strong>Role access is institution-managed</strong><p>Use the Role access and Audit activity sections to administer accounts and review recorded changes.</p></div></section></>
 }

@@ -213,6 +213,21 @@
 .profile-form .full-field { grid-column: 1 / -1; }
 .profile-form-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; }
 .profile-form-actions .button { min-height: 38px; }
+.button-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 14px; border: 1px solid var(--border); border-radius: 9px; color: #53665b; background: #fff; font-size: 11px; font-weight: 600; }
+.button-secondary:hover { background: #f4f7f5; }
+.review-card .job-card-top h3 { margin: 0 0 4px; color: #24404d; font-size: 14px; }
+.review-card .job-card-top p { margin: 0; color: #78867e; font-size: 10px; }
+.review-card .job-description { margin: 12px 0 0; }
+.review-card .skill-list { margin-left: 0; }
+.review-meta { margin: 12px 0; color: #819087; font-size: 10px; }
+.review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.review-actions .button { min-height: 36px; font-size: 11px; }
+.stage-control { display: flex; flex: 0 0 auto; align-items: center; }
+.stage-select { max-width: 190px; min-height: 34px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; color: #53665b; background: #fff; font-size: 10px; text-transform: capitalize; }
+.applicant-row, .admin-user-row { align-items: center; }
+.applicant-detail { display: block; margin-top: 4px; color: #819087; font-size: 10px; line-height: 1.5; }
+.audit-row { min-height: 66px; }
+.audit-row .applicant-detail { max-width: 640px; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 9px; }
 .resume-upload { display: flex; align-items: flex-end; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
 .resume-upload .form-field { flex: 1; min-width: 0; }
 .resume-upload .form-field input { min-height: 40px; padding: 6px 9px; font-size: 11px; }
@@ -295,6 +310,10 @@
   .profile-form .full-field, .profile-form-actions { grid-column: auto; }
   .resume-upload { align-items: stretch; flex-direction: column; padding: 13px; }
   .resume-row { flex-wrap: wrap; gap: 9px; padding: 11px; }
+  .applicant-row, .admin-user-row { align-items: flex-start; flex-direction: column; }
+  .stage-control, .stage-select { width: 100%; max-width: none; }
+  .review-actions { align-items: stretch; flex-direction: column; }
+  .review-actions .button, .review-actions .button-secondary { width: 100%; }
   .resume-file-details { flex-basis: calc(100% - 50px); }
   .resume-action { flex: 1; }
 }
