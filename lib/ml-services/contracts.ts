@@ -47,17 +47,18 @@ export function validateTrainingContract(contract: TrainingContract): string[] {
   if (!contract.dataOwner.trim()) issues.push('A data owner must be identified.')
   if (!contract.consentAndLegalBasis.trim()) issues.push('A documented consent or legal basis is required.')
   if (!contract.targetDefinition.trim()) issues.push('The target label must be precisely defined.')
-  if (contract.featureManifest.length === 0) issues.push('The feature manifest cannot be empty.')
+  if (contract.featureManifest.length === 0 || contract.featureManifest.some((feature) => !feature.trim())) issues.push('The feature manifest must list non-empty feature names.')
+  if (contract.excludedFeatures.length === 0 || contract.excludedFeatures.some((feature) => !feature.trim())) issues.push('Explicitly document excluded features and sensitive attributes.')
   if (contract.splitStrategy.trim().length < 8) issues.push('A reproducible train/validation/test split strategy is required.')
-  if (contract.leakageChecks.length === 0) issues.push('At least one target-leakage check is required.')
-  if (contract.evaluationMetrics.length === 0) issues.push('At least one task-appropriate evaluation metric is required.')
-  if (contract.subgroupEvaluation.length === 0) issues.push('Subgroup performance and fairness evaluation must be documented.')
+  if (contract.leakageChecks.length === 0 || contract.leakageChecks.some((check) => !check.trim())) issues.push('At least one non-empty target-leakage check is required.')
+  if (contract.evaluationMetrics.length === 0 || contract.evaluationMetrics.some((metric) => !metric.trim())) issues.push('At least one task-appropriate evaluation metric is required.')
+  if (contract.subgroupEvaluation.length === 0 || contract.subgroupEvaluation.some((evaluation) => !evaluation.trim())) issues.push('Subgroup performance and fairness evaluation must be documented.')
   if (contract.humanReview.trim().length < 8) issues.push('A human review and appeal path is required.')
   if (contract.retentionPolicy.trim().length < 8) issues.push('A data retention and deletion policy is required.')
   return issues
 }
 
-export function canDeployTrainingContract(contract: TrainingContract): boolean {
+export function isTrainingContractComplete(contract: TrainingContract): boolean {
   return validateTrainingContract(contract).length === 0
 }
 

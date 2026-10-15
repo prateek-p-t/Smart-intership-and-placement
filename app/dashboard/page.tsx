@@ -5,6 +5,7 @@ import { PortalDashboard } from '@/components/portal-dashboard'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { applications, auditLogs, internships, mlModelRegistry, portalProfiles, resumeMetadata, user as users } from '@/lib/db/schema'
+import { modelServiceCapabilities, recommendInternships } from '@/lib/ml-services/contracts'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,7 +61,33 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
   ])
 
+  const recommendations = profile.role === 'student'
+    ? recommendInternships(
+        {
+          skills: profile.skills ?? [],
+          interests: profile.interests ?? [],
+          branch: profile.branch,
+          graduationYear: profile.graduationYear,
+          cgpa: profile.cgpa === null ? null : Number(profile.cgpa),
+        },
+        listings.map((listing) => ({
+          id: listing.id,
+          title: listing.title,
+          companyName: listing.companyName,
+          location: listing.location,
+          workMode: listing.workMode,
+          description: listing.description,
+          requiredSkills: listing.requiredSkills ?? [],
+          eligibility: listing.eligibility ?? {},
+          deadline: listing.deadline ? String(listing.deadline) : null,
+        })),
+        new Set(userApplications.map(({ application }) => application.internshipId)),
+      ).recommendations
+    : []
+
   return <PortalDashboard
+    recommendations={recommendations}
+    modelServiceCapabilities={modelServiceCapabilities}
     user={{ id: session.user.id, name: session.user.name, email: session.user.email }}
     profile={{ role: profile.role, headline: profile.headline, institution: profile.institution, graduationYear: profile.graduationYear, branch: profile.branch, cgpa: profile.cgpa, skills: profile.skills, interests: profile.interests }}
     listings={listings.map((listing) => ({ ...listing, deadline: listing.deadline ? String(listing.deadline) : null, createdAt: listing.createdAt.toISOString(), updatedAt: listing.updatedAt.toISOString() }))}
