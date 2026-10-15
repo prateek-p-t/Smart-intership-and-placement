@@ -35,8 +35,13 @@ type AuditEntry = { id: string; action: string; resourceType: string; resourceId
 type ModelRow = { id: string; modelName: string; task: string; version: string; trainingStatus: string; approvalStatus: string; deploymentStatus: string; evaluationMetrics: Record<string, unknown> }
 type Resume = { id: string; originalName: string; byteSize: number; createdAt: string }
 type ResumeParseResult = {
+  task: 'resume_parsing'
+  lifecycle: 'model_assisted'
+  modelTrained: false
+  model: string
+  sourceFormat: 'pdf'
   extraction: { skills: string[]; emailAddresses: string[]; phoneNumbers: string[]; sectionHeadingsPresent: string[]; textCharacters: number }
-  confidence: { skills: string; contactDetails: string }
+  confidence: { skills: 'low' | 'medium' | 'high'; contactDetails: 'low' | 'medium' | 'high' }
   limitations: string[]
 }
 type ResumeAnalysis = { resumeId: string; originalName: string; result: ResumeParseResult }
@@ -57,7 +62,8 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
   const [pendingId, setPendingId] = useState('')
   const [notice, setNotice] = useState('')
   const [noticeError, setNoticeError] = useState(false)
-  const showNotice = (message: string, isError = false) => { setNotice(message); setNoticeError(isError) }
+  const [noticeActionUrl, setNoticeActionUrl] = useState('')
+  const showNotice = (message: string, isError = false, actionUrl = '') => { setNotice(message); setNoticeError(isError); setNoticeActionUrl(actionUrl) }
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [changingRoleId, setChangingRoleId] = useState('')
@@ -192,6 +198,7 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
     setParsingResumeId(resume.id)
     setResumeAnalysis(null)
     showNotice('')
+    let actionUrl = ''
     try {
       const download = await fetch(`/api/resumes/${encodeURIComponent(resume.id)}`)
       if (!download.ok) {
@@ -203,11 +210,14 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
       formData.set('file', file)
       const response = await fetch('/api/ml/resume/parse', { method: 'POST', body: formData })
       const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.error || 'Unable to analyze this resume.')
+      if (!response.ok) {
+        actionUrl = typeof result.actionUrl === 'string' ? result.actionUrl : ''
+        throw new Error(result.error || 'Unable to analyze this resume.')
+      }
       setResumeAnalysis({ resumeId: resume.id, originalName: resume.originalName, result: result as ResumeParseResult })
       showNotice('Extraction complete. Review and verify every field before using it.')
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : 'Unable to analyze this resume.', true)
+      showNotice(error instanceof Error ? error.message : 'Unable to analyze this resume.', true, actionUrl)
     } finally {
       setParsingResumeId('')
     }
@@ -337,7 +347,7 @@ export function PortalDashboard({ user, profile: initialProfile, listings, appli
         <header className="dashboard-topbar"><button type="button" className="icon-button" aria-label="Notifications"><Bell size={15} /></button><div className="signed-in-user"><span className="user-avatar">{initials(user.name)}</span><span>{user.name}</span></div><button className="signout-button" type="button" onClick={handleSignOut}>Sign out</button></header>
         <div className="dashboard-content">
           <div className="dashboard-welcome"><div><div className="eyebrow"><span className="eyebrow-dot" /> YOUR {roleLabel.toUpperCase()} WORKSPACE</div><h1>{active === 'overview' ? `Good to see you, ${user.name.split(' ')[0]}.` : navItems.find((item) => item.id === active)?.label}</h1><p>{active === 'overview' ? role === 'student' ? 'Your next opportunity starts with a clear view of what fits.' : `Your ${roleLabel.toLowerCase()} tools and authorized records, all in one place.` : 'Explore the information and tools available to your account.'}</p></div>{role === 'student' && <div className="profile-row"><span>PROFILE DETAILS</span><span><i style={{ width: `${profileCompleteness(profile)}%` }} /></span><strong>{profileCompleteness(profile)}%</strong></div>}</div>
-          {notice && <div className={noticeError ? 'form-error' : 'profile-success'} role={noticeError ? 'alert' : 'status'}>{notice}</div>}
+          {notice && <div className={noticeError ? 'form-error' : 'profile-success'} role={noticeError ? 'alert' : 'status'}>{notice}{noticeActionUrl && <a href={noticeActionUrl} target="_blank" rel="noreferrer">Open Vercel AI settings</a>}</div>}
           {role === 'student' && <StudentContent active={active} profile={profile} listings={filteredListings} applications={applications} appliedIds={appliedIds} pendingId={pendingId} onApply={apply} search={search} onSearch={setSearch} onSaveProfile={saveProfile} saving={saving} resumes={resumes} roadmaps={roadmaps} onUploadResume={uploadResume} onDeleteResume={deleteResume} uploadingResume={uploadingResume} deletingResumeId={deletingResumeId} onAnalyzeResume={analyzeResume} parsingResumeId={parsingResumeId} resumeAnalysis={resumeAnalysis} recommendations={recommendations} onNavigate={setActive} />}
           {role === 'company_recruiter' && <RecruiterContent active={active} listings={recruiterListings} applications={recruiterApplications} onCreate={createListing} onStageChange={updateApplicationStage} pendingId={pendingId} saving={saving} />}
           {role === 'faculty' && <FacultyContent active={active} students={facultyStudents} />}
@@ -393,7 +403,7 @@ function StudentContent({ active, profile, listings, applications, appliedIds, p
 }
 
 function ResumeLibrary({ resumes, onUploadResume, onDeleteResume, uploadingResume, deletingResumeId, onAnalyzeResume, parsingResumeId, resumeAnalysis }: { resumes: Resume[]; onUploadResume: (event: FormEvent<HTMLFormElement>) => void; onDeleteResume: (id: string) => void; uploadingResume: boolean; deletingResumeId: string; onAnalyzeResume: (resume: Resume) => void; parsingResumeId: string; resumeAnalysis: ResumeAnalysis | null }) {
-  return <section className="dashboard-section"><div className="section-heading"><div><h2>Resume library</h2><p>Private PDFs are visible only to your account. Maximum file size: 4 MB.</p></div><span className="role-chip">{resumes.length} SAVED</span></div><form className="resume-upload" onSubmit={onUploadResume}><label className="form-field"><span>Choose a PDF resume</span><input name="file" type="file" accept="application/pdf,.pdf" required /></label><button className="button button-dark" type="submit" disabled={uploadingResume}>{uploadingResume ? <><LoaderCircle className="spin" size={15} /> Uploading…</> : <><Upload size={15} /> Upload resume</>}</button></form>{resumes.length ? <ul className="resume-list">{resumes.map((resume) => <li className="resume-row" key={resume.id}><span className="resume-file-icon"><FileText size={17} /></span><div className="resume-file-details"><strong>{resume.originalName}</strong><span>{formatFileSize(resume.byteSize)} · Uploaded <time dateTime={resume.createdAt}>{new Date(resume.createdAt).toLocaleDateString()}</time></span></div><a className="resume-action" href={`/api/resumes/${encodeURIComponent(resume.id)}`} aria-label={`Download ${resume.originalName}`}><Download size={15} /><span>Download</span></a><button className="resume-action" type="button" disabled={Boolean(parsingResumeId)} aria-label={`Analyze ${resume.originalName}`} onClick={() => onAnalyzeResume(resume)}>{parsingResumeId === resume.id ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />}<span>{parsingResumeId === resume.id ? 'Analyzing…' : 'Analyze'}</span></button><button className="resume-action resume-delete" type="button" disabled={deletingResumeId === resume.id || parsingResumeId === resume.id} aria-label={`Delete ${resume.originalName}`} onClick={() => { if (window.confirm(`Delete ${resume.originalName}?`)) onDeleteResume(resume.id) }}>{deletingResumeId === resume.id ? <LoaderCircle className="spin" size={15} /> : <Trash2 size={15} />}<span>Delete</span></button></li>)}</ul> : <div className="empty-state"><strong>No resumes uploaded</strong><p>Upload a PDF to keep a private copy in your workspace.</p></div>}{resumeAnalysis && <section className="resume-analysis" aria-live="polite" aria-labelledby="resume-analysis-title"><div><span className="tool-kicker">REVIEW BEFORE USE</span><h3 id="resume-analysis-title">Extracted details from {resumeAnalysis.originalName}</h3><p>Heuristic extraction only. Nothing is saved to your profile; verify details and make any edits yourself.</p></div><div className="resume-analysis-grid"><div><strong>Skills detected</strong><p>{resumeAnalysis.result.extraction.skills.length ? resumeAnalysis.result.extraction.skills.join(', ') : 'No supported skills detected.'}</p><small>{resumeAnalysis.result.confidence.skills}</small></div><div><strong>Contact details found</strong><p>{[...resumeAnalysis.result.extraction.emailAddresses, ...resumeAnalysis.result.extraction.phoneNumbers].join(' · ') || 'None detected.'}</p><small>{resumeAnalysis.result.confidence.contactDetails}</small></div><div><strong>Section headings</strong><p>{resumeAnalysis.result.extraction.sectionHeadingsPresent.join(', ') || 'No supported headings detected.'}</p></div><div><strong>Text extracted</strong><p>{resumeAnalysis.result.extraction.textCharacters.toLocaleString()} characters</p></div></div><ul>{resumeAnalysis.result.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul></section>}</section>
+  return <section className="dashboard-section"><div className="section-heading"><div><h2>Resume library</h2><p>Private PDFs are visible only to your account. Analyze sends the selected PDF to Gemini via Vercel AI Gateway; verify every extracted field. Maximum file size: 4 MB.</p></div><span className="role-chip">{resumes.length} SAVED</span></div><form className="resume-upload" onSubmit={onUploadResume}><label className="form-field"><span>Choose a PDF resume</span><input name="file" type="file" accept="application/pdf,.pdf" required /></label><button className="button button-dark" type="submit" disabled={uploadingResume}>{uploadingResume ? <><LoaderCircle className="spin" size={15} /> Uploading…</> : <><Upload size={15} /> Upload resume</>}</button></form>{resumes.length ? <ul className="resume-list">{resumes.map((resume) => <li className="resume-row" key={resume.id}><span className="resume-file-icon"><FileText size={17} /></span><div className="resume-file-details"><strong>{resume.originalName}</strong><span>{formatFileSize(resume.byteSize)} · Uploaded <time dateTime={resume.createdAt}>{new Date(resume.createdAt).toLocaleDateString()}</time></span></div><a className="resume-action" href={`/api/resumes/${encodeURIComponent(resume.id)}`} aria-label={`Download ${resume.originalName}`}><Download size={15} /><span>Download</span></a><button className="resume-action" type="button" disabled={Boolean(parsingResumeId)} aria-label={`Analyze ${resume.originalName}`} onClick={() => onAnalyzeResume(resume)}>{parsingResumeId === resume.id ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />}<span>{parsingResumeId === resume.id ? 'Analyzing…' : 'Analyze'}</span></button><button className="resume-action resume-delete" type="button" disabled={deletingResumeId === resume.id || parsingResumeId === resume.id} aria-label={`Delete ${resume.originalName}`} onClick={() => { if (window.confirm(`Delete ${resume.originalName}?`)) onDeleteResume(resume.id) }}>{deletingResumeId === resume.id ? <LoaderCircle className="spin" size={15} /> : <Trash2 size={15} />}<span>Delete</span></button></li>)}</ul> : <div className="empty-state"><strong>No resumes uploaded</strong><p>Upload a PDF to keep a private copy in your workspace.</p></div>}{resumeAnalysis && <section className="resume-analysis" aria-live="polite" aria-labelledby="resume-analysis-title"><div><span className="tool-kicker">REVIEW BEFORE USE</span><h3 id="resume-analysis-title">Extracted details from {resumeAnalysis.originalName}</h3><p>Heuristic extraction only. Nothing is saved to your profile; verify details and make any edits yourself.</p></div><div className="resume-analysis-grid"><div><strong>Skills detected</strong><p>{resumeAnalysis.result.extraction.skills.length ? resumeAnalysis.result.extraction.skills.join(', ') : 'No supported skills detected.'}</p><small>{resumeAnalysis.result.confidence.skills}</small></div><div><strong>Contact details found</strong><p>{[...resumeAnalysis.result.extraction.emailAddresses, ...resumeAnalysis.result.extraction.phoneNumbers].join(' · ') || 'None detected.'}</p><small>{resumeAnalysis.result.confidence.contactDetails}</small></div><div><strong>Section headings</strong><p>{resumeAnalysis.result.extraction.sectionHeadingsPresent.join(', ') || 'No supported headings detected.'}</p></div><div><strong>Text extracted</strong><p>{resumeAnalysis.result.extraction.textCharacters.toLocaleString()} characters</p></div></div><ul>{resumeAnalysis.result.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul></section>}</section>
 }
 
 function CareerTools({ profile, listings, roadmaps }: { profile: Profile; listings: Listing[]; roadmaps: CareerRoadmap[] }) {

@@ -338,6 +338,7 @@
   .service-capability p { margin: 8px 0 4px; color: #607267; font-size: 10px; line-height: 1.5; }
   .service-capability small { color: #859188; font-size: 9px; line-height: 1.5; }
   .profile-success { color: #36734f; font-size: 11px; }
+  .form-error a, .profile-success a { color: inherit; font-weight: 600; margin-left: 6px; text-decoration: underline; text-underline-offset: 2px; }
 
 @media (max-width: 850px) {
   .landing-page { width: min(100% - 40px, 650px); }

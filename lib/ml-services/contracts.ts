@@ -1,4 +1,4 @@
-export type ModelLifecycle = 'rules_based' | 'not_trained' | 'experimental' | 'approved' | 'offline'
+export type ModelLifecycle = 'rules_based' | 'model_assisted' | 'not_trained' | 'experimental' | 'approved' | 'offline'
 export type ModelTask =
   | 'resume_parsing'
   | 'internship_recommendation'
@@ -182,7 +182,7 @@ export function recommendInternships(
 }
 
 export const modelServiceCapabilities: ServiceCapability[] = [
-  { task: 'resume_parsing', displayName: 'Resume parsing and skill extraction', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Private document text extraction with structured, confidence-labeled fields.', limitation: 'Scanned PDFs require OCR; extracted skills and contact details must be reviewed by the student.', trainingContractRequired: false },
+  { task: 'resume_parsing', displayName: 'AI resume parsing and skill extraction', lifecycle: 'model_assisted', isTrained: false, isDeployed: true, description: 'Google Gemini 3.5 Flash extracts skills, contact details, and section headings from PDF resumes through Vercel AI Gateway.', limitation: 'This is a pretrained foundation model, not a custom model trained on Pathway data. Results are uncalibrated, require student review, and scanned PDFs may be incomplete.', trainingContractRequired: false },
   { task: 'internship_recommendation', displayName: 'Internship recommendation', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Explainable ranking by exact skill overlap, interests, and published eligibility.', limitation: 'A transparent baseline only; not a trained model or hiring decision.', trainingContractRequired: false },
   { task: 'job_candidate_matching', displayName: 'Job and candidate matching', lifecycle: 'rules_based', isTrained: false, isDeployed: true, description: 'Feature-level comparison of stated job requirements and candidate profile.', limitation: 'Similarity is not proof of qualification; human review is required.', trainingContractRequired: false },
   { task: 'placement_prediction', displayName: 'Placement prediction', lifecycle: 'not_trained', isTrained: false, isDeployed: false, description: 'Calibrated placement outcome estimates from authorized historical data.', limitation: 'No approved dataset or evaluated artifact is available; no probability is returned.', trainingContractRequired: true },
