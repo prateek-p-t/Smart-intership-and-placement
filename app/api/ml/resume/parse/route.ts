@@ -134,7 +134,13 @@ export async function POST(request: Request) {
   } catch (error) {
     const modelError = error as Error & { statusCode?: number; cause?: { message?: string } }
     const modelMessage = `${modelError.message ?? ''} ${modelError.cause?.message ?? ''}`
-    if (modelError.statusCode === 403 && /customer_verification_required|valid credit card on file/i.test(modelMessage)) {
+    if (modelError.statusCode === 403) {
+      return NextResponse.json({
+        error: 'Vercel AI Gateway denied this extraction. Check that your account has a verified payment method or available credits, and that the selected model is enabled in Vercel AI settings.',
+        actionUrl: 'https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card',
+      }, { status: 503 })
+    }
+    if (/customer_verification_required|valid credit card on file/i.test(modelMessage)) {
       return NextResponse.json({
         error: 'Vercel AI Gateway requires a verified payment method to unlock its free credits. Add a card in Vercel AI settings, then try again.',
         actionUrl: 'https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card',
