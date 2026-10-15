@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+import { Buffer } from 'node:buffer'
 import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
@@ -24,6 +26,8 @@ const taskRoutes = {
   fraud_duplicate_detection: 'fraud/check',
   fairness_audit: 'fairness/audit',
 } as const
+
+const validRoles = new Set(['student', 'company_recruiter', 'faculty', 'placement_officer', 'administrator'])
 
 const taskRoles: Record<keyof typeof taskRoutes, string[]> = {
   resume_parsing: ['student'],
@@ -55,7 +59,7 @@ export async function POST(request: Request) {
     .from(portalProfiles)
     .where(eq(portalProfiles.userId, session.user.id))
     .limit(1)
-  if (!profile || !taskRoles.internship_recommendation.includes(profile.role) && !Object.values(taskRoles).some((roles) => roles.includes(profile.role))) {
+  if (!profile || !validRoles.has(profile.role)) {
     return NextResponse.json({ error: 'A valid portal role is required.' }, { status: 403 })
   }
 
@@ -97,9 +101,9 @@ export async function POST(request: Request) {
       headers: {
         Authorization: `Bearer ${serviceToken}`,
         'Content-Type': 'application/json',
-        'X-Request-ID': crypto.randomUUID(),
+        'X-Request-ID': randomUUID(),
       },
-      body: JSON.stringify({ ...parsed.data.payload, actorRole: profile.role }),
+      body: JSON.stringify({ payload: { ...parsed.data.payload, actorRole: profile.role } }),
       cache: 'no-store',
       signal: AbortSignal.timeout(30_000),
     })
@@ -130,7 +134,3 @@ export async function OPTIONS() {
 export async function HEAD() {
   return new NextResponse(null, { status: 405, headers: { Allow: 'POST' } })
 }
-
-const crypto = globalThis.crypto
-const Buffer = (await import('node:buffer')).Buffer
-
