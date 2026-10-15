@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { z } from 'zod'
 import { authClient } from '@/lib/auth-client'
 import { ArrowLeft, ArrowRight, BriefcaseBusiness, LoaderCircle, ShieldCheck } from 'lucide-react'
@@ -14,7 +13,6 @@ const credentialsSchema = z.object({
 })
 
 export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
-  const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,9 +33,13 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
       const result = isSignUp
         ? await authClient.signUp.email({ name: parsed.data.name!, email: parsed.data.email, password: parsed.data.password })
         : await authClient.signIn.email({ email: parsed.data.email, password: parsed.data.password })
-      if (result.error) throw new Error('Unable to continue with those details.')
-      router.replace('/dashboard')
-      router.refresh()
+      if (result.error) throw new Error('Unable to continue with those details. Check your information and try again.')
+      const session = await authClient.getSession()
+      if (session.error || !session.data?.user) {
+        setError('Your sign-in was accepted, but the session could not be saved. Please try again.')
+        return
+      }
+      window.location.replace('/dashboard')
     } catch {
       setError('Unable to continue with those details. Check your information and try again.')
     } finally {
