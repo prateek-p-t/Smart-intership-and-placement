@@ -5,11 +5,13 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { applications, auditLogs, internships, portalProfiles } from '@/lib/db/schema'
+import { isSameOriginRequest } from '@/lib/security/origin'
 
 export const runtime = 'nodejs'
 const applicationSchema = z.object({ internshipId: z.string().trim().min(1).max(128) }).strict()
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Cross-origin application requests are not allowed.' }, { status: 403 })
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: 'Sign in to apply.' }, { status: 401 })
   const [profile] = await db.select({ role: portalProfiles.role }).from(portalProfiles).where(eq(portalProfiles.userId, session.user.id)).limit(1)

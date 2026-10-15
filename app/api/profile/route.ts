@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { portalProfiles } from '@/lib/db/schema'
+import { isSameOriginRequest } from '@/lib/security/origin'
 
 export const runtime = 'nodejs'
 
@@ -19,6 +20,7 @@ const profileSchema = z.object({
 }).strict()
 
 export async function PATCH(request: Request) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Cross-origin profile requests are not allowed.' }, { status: 403 })
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: 'Sign in to update your profile.' }, { status: 401 })
   const [profile] = await db.select({ role: portalProfiles.role }).from(portalProfiles).where(eqProfileUser(session.user.id)).limit(1)

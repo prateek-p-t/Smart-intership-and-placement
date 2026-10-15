@@ -6,13 +6,9 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { auditLogs, portalProfiles, resumeMetadata } from '@/lib/db/schema'
+import { isSameOriginRequest } from '@/lib/security/origin'
 
 export const runtime = 'nodejs'
-
-function isSameOrigin(request: Request) {
-  const origin = request.headers.get('origin')
-  return !origin || new URL(origin).origin === new URL(request.url).origin
-}
 
 const MAX_RESUME_BYTES = 4 * 1024 * 1024
 const PDF_SIGNATURE = '%PDF-'
@@ -33,7 +29,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!isSameOrigin(request)) return NextResponse.json({ error: 'Cross-origin upload requests are not allowed.' }, { status: 403 })
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Cross-origin upload requests are not allowed.' }, { status: 403 })
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: 'Sign in to upload a resume.' }, { status: 401 })
 
@@ -109,7 +105,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!isSameOrigin(request)) return NextResponse.json({ error: 'Cross-origin delete requests are not allowed.' }, { status: 403 })
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Cross-origin delete requests are not allowed.' }, { status: 403 })
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: 'Sign in to delete a resume.' }, { status: 401 })
 

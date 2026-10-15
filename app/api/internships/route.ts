@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { auditLogs, internships, portalProfiles } from '@/lib/db/schema'
+import { isSameOriginRequest } from '@/lib/security/origin'
 
 export const runtime = 'nodejs'
 const listingSchema = z.object({
@@ -18,6 +19,7 @@ const listingSchema = z.object({
 }).strict()
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Cross-origin listing requests are not allowed.' }, { status: 403 })
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return NextResponse.json({ error: 'Sign in to submit a listing.' }, { status: 401 })
   const [profile] = await db.select({ role: portalProfiles.role }).from(portalProfiles).where(eq(portalProfiles.userId, session.user.id)).limit(1)
